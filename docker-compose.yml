@@ -1,0 +1,30 @@
+version: '3.8'
+
+services:
+  backend:
+    build: 
+      context: ./backend
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend/src:/app/src
+    environment:
+      - LLM_API_KEY=${LLM_API_KEY}
+    networks:
+      - poker-net
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+    networks:
+      - poker-net
+
+networks:
+  poker-net:
+    driver: bridge
