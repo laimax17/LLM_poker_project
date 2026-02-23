@@ -2,6 +2,8 @@
 Qwen (DashScope) LLM client via OpenAI-compatible API.
 Uses the openai SDK pointed at Alibaba's DashScope base URL.
 """
+from __future__ import annotations
+
 import logging
 import os
 

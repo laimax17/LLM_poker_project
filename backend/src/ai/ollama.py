@@ -2,6 +2,8 @@
 Ollama LLM client (local inference).
 Uses the Ollama REST API with OpenAI-compatible messages format.
 """
+from __future__ import annotations
+
 import logging
 import os
 
