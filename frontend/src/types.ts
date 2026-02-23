@@ -9,7 +9,7 @@ export interface Player {
   id: string;
   name: string;
   chips: number;
-  hand: Card[];
+  hand: (Card | null)[];
   is_active: boolean;
   current_bet: number;
   is_all_in: boolean;
@@ -17,8 +17,10 @@ export interface Player {
   is_dealer: boolean;
 }
 
+export type GameStreet = 'PREFLOP' | 'FLOP' | 'TURN' | 'RIVER' | 'SHOWDOWN' | 'FINISHED';
+
 export interface GameState {
-  state: string;
+  state: GameStreet;
   pot: number;
   community_cards: Card[];
   players: Player[];
@@ -29,7 +31,29 @@ export interface GameState {
   winning_hand: string;
 }
 
-export interface AIThought {
+export type LLMEngine = 'rule-based' | 'ollama' | 'qwen-plus' | 'qwen-max';
+
+export interface LLMConfig {
+  engine: LLMEngine;
+  model: string;
+  status: 'online' | 'offline' | 'loading';
+}
+
+export interface AICoachStat {
+  label: string;
+  value: string;
+  quality: 'good' | 'bad' | 'hot' | 'neutral';
+}
+
+export interface AICoachAdvice {
+  recommendation: 'FOLD' | 'CALL' | 'CHECK' | 'RAISE';
+  recommendedAmount?: number;
+  body: string;
+  stats: AICoachStat[];
+}
+
+export interface BotThought {
+  player_id: string;
   thought: string;
   chat: string;
 }

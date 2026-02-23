@@ -1,0 +1,156 @@
+import React from 'react';
+import type { Player } from '../../types';
+import Card from '../card/Card';
+
+interface PlayerBoxProps {
+  player: Player;
+  isCurrentTurn: boolean;
+  chipBubbleSide: 'right' | 'left';
+  badge?: string;   // 'BTN' | 'SB' | 'BB' | 'UTG' | 'HJ' | 'CO'
+}
+
+function getStatusText(player: Player, isCurrentTurn: boolean): { text: string; color: string } {
+  if (!player.is_active) return { text: 'FOLD', color: 'var(--brown)' };
+  if (player.is_all_in)  return { text: 'ALL IN', color: '#ffcc00' };
+  if (isCurrentTurn)     return { text: 'THINKING ▌', color: '#ffcc00' };
+  if (player.current_bet > 0) return { text: `BET $${player.current_bet}`, color: '#ffcc00' };
+  return { text: 'WAITING', color: 'var(--gold-d)' };
+}
+
+const PlayerBox: React.FC<PlayerBoxProps> = ({
+  player,
+  isCurrentTurn,
+  chipBubbleSide,
+  badge,
+}) => {
+  const isFolded = !player.is_active;
+  const status = getStatusText(player, isCurrentTurn);
+
+  const boxStyle: React.CSSProperties = {
+    background: 'rgba(10, 9, 0, 0.88)',
+    border: '2px solid var(--brown)',
+    padding: '8px 10px',
+    width: 150,
+    position: 'relative',
+    clipPath: 'var(--clip-sm)',
+    opacity: isFolded ? 0.3 : 1,
+    flexShrink: 0,
+  };
+
+  const activeBoxStyle: React.CSSProperties = isCurrentTurn && player.is_active ? {
+    borderColor: 'var(--gold)',
+    boxShadow: '0 0 14px rgba(200,160,64,0.45)',
+    animation: 'gold-pulse 0.8s steps(1) infinite',
+  } : {};
+
+  // Show face-up cards only at showdown (cards will be Card objects instead of null)
+  const showCards = player.hand.length === 2 && player.hand[0] !== null && player.hand[1] !== null;
+  const hasChipBubble = player.current_bet > 0 && player.is_active;
+
+  const bubbleEl = hasChipBubble ? (
+    <div style={{
+      fontFamily: 'var(--font-ui)',
+      fontSize: 5,
+      background: '#1a0e00',
+      border: '1px solid var(--gold-d)',
+      color: 'var(--gold)',
+      padding: '2px 6px',
+      alignSelf: 'center',
+      flexShrink: 0,
+      whiteSpace: 'nowrap',
+    }}>
+      ${player.current_bet}
+    </div>
+  ) : null;
+
+  return (
+    <div style={{
+      display: 'flex',
+      flexDirection: chipBubbleSide === 'right' ? 'row' : 'row-reverse',
+      alignItems: 'center',
+      gap: 6,
+    }}>
+      {/* Main pbox */}
+      <div style={{ ...boxStyle, ...activeBoxStyle }}>
+        {/* Position badge */}
+        {badge && (
+          <div style={{
+            position: 'absolute',
+            top: -8,
+            right: 5,
+            background: 'var(--gold)',
+            color: '#000',
+            fontSize: 4,
+            padding: '2px 5px',
+            fontFamily: 'var(--font-ui)',
+            lineHeight: 1.4,
+          }}>
+            {badge}
+          </div>
+        )}
+
+        {/* Bot name */}
+        <div style={{
+          fontFamily: 'var(--font-ui)',
+          fontSize: 7,
+          color: 'var(--gold)',
+          marginBottom: 4,
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
+          whiteSpace: 'nowrap',
+        }}>
+          {player.name}
+        </div>
+
+        {/* Chips */}
+        <div style={{
+          fontSize: 5,
+          color: 'var(--gold-l)',
+          marginBottom: 3,
+          fontFamily: 'var(--font-label)',
+        }}>
+          ${player.chips.toLocaleString()}
+        </div>
+
+        {/* Status */}
+        <div style={{
+          fontSize: 5,
+          color: status.color,
+          fontFamily: 'var(--font-label)',
+        }}>
+          {status.text}
+        </div>
+
+        {/* Cards (face-down or face-up at showdown) */}
+        <div style={{ display: 'flex', gap: 3, marginTop: 5 }}>
+          {showCards ? (
+            <>
+              <Card
+                size="sm"
+                variant="face-up"
+                rank={(player.hand[0] as { rank: number; suit: string }).rank}
+                suit={(player.hand[0] as { rank: number; suit: string }).suit}
+              />
+              <Card
+                size="sm"
+                variant="face-up"
+                rank={(player.hand[1] as { rank: number; suit: string }).rank}
+                suit={(player.hand[1] as { rank: number; suit: string }).suit}
+              />
+            </>
+          ) : player.is_active ? (
+            <>
+              <Card size="sm" variant="face-down" />
+              <Card size="sm" variant="face-down" />
+            </>
+          ) : null}
+        </div>
+      </div>
+
+      {/* Chip bubble */}
+      {bubbleEl}
+    </div>
+  );
+};
+
+export default PlayerBox;
