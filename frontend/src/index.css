@@ -2,23 +2,172 @@
 @tailwind components;
 @tailwind utilities;
 
+:root {
+  /* === Background === */
+  --bg:               #1a1008;
+  --surface:          #0a0900;
+  --surface2:         #120c04;
+  --felt-c:           #1a3a1a;
+  --felt-e:           #081508;
+
+  /* === Gold Palette === */
+  --gold:             #c8a040;
+  --gold-l:           #e8d080;
+  --gold-d:           #6b4c10;
+  --brown:            #3a2a08;
+
+  /* === Functional Colors === */
+  --red:              #cc1111;
+  --black:            #111111;
+  --green-ok:         #66cc88;
+  --yellow-hot:       #ffcc00;
+  --red-bad:          #cc6666;
+
+  /* === Card Colors === */
+  --card-bg:          #ffffff;
+  --card-border:      #d0c8b8;
+  --card-back-bg:     #1c2a1c;
+  --card-back-border: #2a4a2a;
+
+  /* === Typography === */
+  --font-rank:  Georgia, 'Times New Roman', serif;
+  --font-ui:    'Silkscreen', monospace;
+  --font-ai:    'VT323', monospace;
+  --font-label: 'Press Start 2P', monospace;
+
+  /* === Shadows === */
+  --shadow-card-lg: 4px 4px 0 #000;
+  --shadow-card-md: 3px 3px 0 #000;
+  --shadow-card-sm: 2px 2px 0 #000;
+  --shadow-card-xs: 1px 1px 0 #000;
+
+  /* === Glows === */
+  --glow-gold:  0 0 16px rgba(200, 160, 64, 0.5);
+  --glow-red:   0 0 14px rgba(204, 17, 17, 0.45);
+  --glow-green: 0 0 10px rgba(102, 204, 136, 0.4);
+
+  /* === Clip-Paths === */
+  --clip-lg: polygon(6px 0%, calc(100% - 6px) 0%, 100% 6px, 100% calc(100% - 6px), calc(100% - 6px) 100%, 6px 100%, 0% calc(100% - 6px), 0% 6px);
+  --clip-md: polygon(5px 0%, calc(100% - 5px) 0%, 100% 5px, 100% calc(100% - 5px), calc(100% - 5px) 100%, 5px 100%, 0% calc(100% - 5px), 0% 5px);
+  --clip-sm: polygon(4px 0%, calc(100% - 4px) 0%, 100% 4px, 100% calc(100% - 4px), calc(100% - 4px) 100%, 4px 100%, 0% calc(100% - 4px), 0% 4px);
+  --clip-xs: polygon(3px 0%, calc(100% - 3px) 0%, 100% 3px, 100% calc(100% - 3px), calc(100% - 3px) 100%, 3px 100%, 0% calc(100% - 3px), 0% 3px);
+}
+
 @layer base {
   body {
-    @apply bg-cyber-bg text-white font-sans overflow-hidden;
+    background-color: var(--bg);
+    color: var(--gold-l);
+    font-family: var(--font-label);
+    overflow: hidden;
+  }
+
+  /* CRT scanline overlay */
+  body::after {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background: repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 3px,
+      rgba(0, 0, 0, 0.04) 3px,
+      rgba(0, 0, 0, 0.04) 4px
+    );
+    pointer-events: none;
+    z-index: 9999;
   }
 }
 
-/* Custom Scrollbar */
-::-webkit-scrollbar {
-  width: 8px;
+/* === Keyframes === */
+@keyframes gold-pulse {
+  0%, 49%  { border-color: var(--gold); box-shadow: 0 0 14px rgba(200, 160, 64, 0.45); }
+  50%, 100% { border-color: var(--gold-d); box-shadow: none; }
 }
-::-webkit-scrollbar-track {
-  background: #1a1a1a; 
+
+@keyframes blink {
+  0%, 49%  { opacity: 1; }
+  50%, 100% { opacity: 0.2; }
 }
-::-webkit-scrollbar-thumb {
-  background: #bc13fe; 
-  border-radius: 4px;
+
+@keyframes status-dot-pulse {
+  0%, 49%  { opacity: 1; }
+  50%, 100% { opacity: 0.4; }
 }
-::-webkit-scrollbar-thumb:hover {
-  background: #00f0ff; 
+
+/* === Scrollbar === */
+::-webkit-scrollbar { width: 8px; }
+::-webkit-scrollbar-track { background: var(--bg); }
+::-webkit-scrollbar-thumb { background: var(--gold-d); }
+::-webkit-scrollbar-thumb:hover { background: var(--gold); }
+
+/* === Action Button Classes (pseudo-class styles can't be inline) === */
+@layer components {
+  .abtn {
+    font-family: var(--font-ui);
+    font-size: 8px;
+    padding: 11px 16px;
+    border: 3px solid;
+    cursor: pointer;
+    background: var(--surface);
+    letter-spacing: 1px;
+    clip-path: var(--clip-xs);
+    transition: background 0.1s;
+  }
+  .abtn:active {
+    transform: translate(2px, 2px);
+  }
+  .abtn:disabled {
+    opacity: 0.5;
+    pointer-events: none;
+  }
+  .abtn-fold {
+    color: #ff8888;
+    border-color: #882222;
+  }
+  .abtn-fold:hover {
+    background: #1a0808;
+  }
+  .abtn-check {
+    color: #88ddaa;
+    border-color: #336644;
+  }
+  .abtn-check:hover {
+    background: #081a0f;
+  }
+  .abtn-call {
+    color: #88ddaa;
+    border-color: #336644;
+  }
+  .abtn-call:hover {
+    background: #081a0f;
+  }
+  .abtn-raise {
+    color: var(--gold-l);
+    border-color: var(--gold);
+  }
+  .abtn-raise:hover {
+    background: #1a1204;
+    box-shadow: 0 0 10px rgba(200, 160, 64, 0.3);
+  }
+  .abtn-ai {
+    color: var(--gold);
+    border-color: var(--gold-d);
+  }
+  .abtn-ai:hover {
+    background: #1a1204;
+  }
+
+  .raise-inp {
+    font-family: var(--font-label);
+    font-size: 7px;
+    background: #000;
+    border: 2px solid var(--brown);
+    color: var(--gold-l);
+    padding: 11px 10px;
+    width: 80px;
+    outline: none;
+  }
+  .raise-inp:focus {
+    border-color: var(--gold);
+  }
 }

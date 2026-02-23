@@ -1,0 +1,203 @@
+/**
+ * design_reference/tokens.css
+ * Cyber Hold'em — 设计 Token 基准文件
+ * 所有颜色、字体、间距从此文件提取，不得自行发明
+ */
+
+:root {
+  /* ── 背景色 ── */
+  --bg:        #1a1008;   /* 页面最底层背景 */
+  --surface:   #0a0900;   /* 卡片/面板背景 */
+  --surface2:  #120c04;   /* Header 背景 */
+  --felt-c:    #1a3a1a;   /* 桌面中心绿色 */
+  --felt-e:    #081508;   /* 桌面边缘深绿 */
+
+  /* ── 金色系（主色调） ── */
+  --gold:      #c8a040;   /* 主金色，边框、标题 */
+  --gold-l:    #e8d080;   /* 浅金，玩家名、高亮 */
+  --gold-d:    #6b4c10;   /* 深金，次要文字、暗边框 */
+  --brown:     #3a2a08;   /* 深棕，分隔线、次要边框 */
+
+  /* ── 功能色 ── */
+  --red:       #cc1111;   /* 红色花色（♥♦）、FOLD 按钮 */
+  --black:     #111111;   /* 黑色花色（♠♣） */
+  --green-ok:  #66cc88;   /* 成功状态、CALL、IP 位置 */
+  --yellow-hot:#ffcc00;   /* 推荐操作高亮、RAISE */
+  --red-bad:   #cc6666;   /* 警告、底池赔率不利 */
+
+  /* ── 牌面 ── */
+  --card-bg:   #ffffff;   /* 牌面白底 */
+  --card-border:#d0c8b8;  /* 牌面默认边框 */
+  --card-back-bg:  #1c2a1c; /* 背面深绿 */
+  --card-back-border: #2a4a2a;
+
+  /* ── 字体 ── */
+  --font-rank: Georgia, 'Times New Roman', serif;  /* 牌面数字 */
+  --font-ui:   'Silkscreen', monospace;             /* UI 标题、Bot 名字 */
+  --font-ai:   'VT323', monospace;                  /* AI 对话框文本 */
+  --font-label:'Press Start 2P', monospace;         /* 按钮、小标签 */
+
+  /* ── 阴影 ── */
+  --shadow-card-lg: 4px 4px 0 #000;
+  --shadow-card-md: 3px 3px 0 #000;
+  --shadow-card-sm: 2px 2px 0 #000;
+  --shadow-card-xs: 1px 1px 0 #000;
+
+  /* ── Glow ── */
+  --glow-gold: 0 0 16px rgba(200, 160, 64, 0.5);
+  --glow-red:  0 0 14px rgba(204, 17, 17, 0.45);
+  --glow-green:0 0 10px rgba(102, 204, 136, 0.4);
+
+  /* ── 像素切角（clip-path） ── */
+  /* 用法: clip-path: var(--clip-lg) */
+  --clip-lg:   polygon(6px 0%, calc(100% - 6px) 0%, 100% 6px, 100% calc(100% - 6px), calc(100% - 6px) 100%, 6px 100%, 0% calc(100% - 6px), 0% 6px);
+  --clip-md:   polygon(5px 0%, calc(100% - 5px) 0%, 100% 5px, 100% calc(100% - 5px), calc(100% - 5px) 100%, 5px 100%, 0% calc(100% - 5px), 0% 5px);
+  --clip-sm:   polygon(4px 0%, calc(100% - 4px) 0%, 100% 4px, 100% calc(100% - 4px), calc(100% - 4px) 100%, 4px 100%, 0% calc(100% - 4px), 0% 4px);
+  --clip-xs:   polygon(3px 0%, calc(100% - 3px) 0%, 100% 3px, 100% calc(100% - 3px), calc(100% - 3px) 100%, 3px 100%, 0% calc(100% - 3px), 0% 3px);
+}
+
+/**
+ * ── CARD 组件规格 ──
+ *
+ * 四种尺寸，用途不同：
+ *
+ * LG (62×88px) — 公共牌（Community Cards）
+ *   - clip-path: var(--clip-md)
+ *   - border: 3px solid var(--card-border)
+ *   - box-shadow: var(--shadow-card-lg)
+ *   - .rank font-size: 20px, font-family: var(--font-rank), font-weight: 900
+ *   - .suit font-size: 40px（中央大花色）
+ *   - 结构: 左上角 rank only，中央大 suit，无右下角
+ *   - glow 状态: border-color: var(--gold) + box-shadow: var(--shadow-card-lg), var(--glow-gold)
+ *
+ * MD (58×82px) — 人类玩家手牌
+ *   - clip-path: var(--clip-md)
+ *   - .rank font-size: 18px
+ *   - .suit font-size: 36px
+ *   - glow 状态: border-color: var(--red) + var(--glow-red)
+ *
+ * SM (30×42px) — Bot 手牌（背面/摊牌）
+ *   - clip-path: var(--clip-xs)
+ *   - border: 2px solid
+ *   - .rank font-size: 10px
+ *   - .suit font-size: 16px
+ *
+ * XS (30×40px) — AI 对话框内联牌
+ *   - clip-path: var(--clip-xs)
+ *   - border: 2px solid var(--card-border)
+ *   - box-shadow: var(--shadow-card-xs)
+ *   - display: inline-flex，vertical-align: middle
+ *   - 结构特殊: rank 在左上角，suit 在右下角，无中央大花色
+ *   - .rank font-size: 11px（左上）
+ *   - .suit font-size: 13px（右下角绝对定位）
+ *
+ * 背面样式（.back）:
+ *   - background: var(--card-back-bg)
+ *   - border-color: var(--card-back-border)
+ *   - 内层 inset 5px 带斜线图案: repeating-linear-gradient 45deg + -45deg
+ *   - 图案色: rgba(200,160,64,0.07)
+ *
+ * 花色颜色规则:
+ *   - ♥ ♦ → color: var(--red)
+ *   - ♠ ♣ → color: var(--black)
+ */
+
+/**
+ * ── LAYOUT 规格 ──
+ *
+ * 桌面整体使用 CSS Grid + absolute positioning 混合布局:
+ *
+ * <PokerTable>
+ *   <Felt>  ← 绿色桌面，border: 5px solid var(--gold)
+ *             background: radial-gradient(ellipse 80% 70% at 50% 42%, var(--felt-c), #122012, var(--felt-e))
+ *             四角像素装饰: ::before ::after 各 18×18px 金色 L 形边角
+ *
+ *     <BotsLeft>   ← absolute, left: 16px, top: 24px, 竖向 flex, gap: 10px, 3个Bot
+ *     <BotsRight>  ← absolute, right: 16px, top: 24px, 竖向 flex, gap: 10px, 2个Bot
+ *
+ *     <TableCenter> ← absolute, top: 50%, left: 50%, transform: translate(-50%, -58%)
+ *                     内含: PotDisplay + CommunityCards(5张LG牌)
+ *
+ *     <HoleCards>  ← absolute, bottom: 20px, left: 50%, transform: translateX(-50%)
+ *                    玩家手牌(2张MD牌) + "YOUR HAND" 标签（闪烁动画）
+ *
+ *     <PlayerInfo> ← absolute, bottom: 16px, right: 16px
+ *                    比 Bot 框大，border: 3px solid var(--gold-l)
+ *                    显示: 玩家名、筹码、位置状态
+ *   </Felt>
+ * </PokerTable>
+ *
+ * PlayerBox (Bot) 规格:
+ *   - width: 150px
+ *   - background: rgba(10, 9, 0, 0.88)
+ *   - border: 2px solid var(--brown)
+ *   - clip-path: var(--clip-sm)
+ *   - active 状态: border-color: var(--gold), box-shadow: 0 0 14px rgba(200,160,64,0.45)
+ *                  animation: gold-pulse 0.8s steps(1) infinite（金边闪烁）
+ *   - folded 状态: opacity: 0.3
+ *   - 筹码气泡(.chip-bubble): 紧贴 Bot 框右侧（左边Bot朝右，右边Bot朝左）
+ *
+ * @keyframes gold-pulse:
+ *   0%,49%  { border-color: var(--gold) }
+ *   50%,100%{ border-color: var(--gold-d) }
+ *
+ * @keyframes blink（YOUR HAND 标签）:
+ *   0%,49%  { opacity: 1 }
+ *   50%,100%{ opacity: 0.2 }
+ */
+
+/**
+ * ── ACTION BAR 规格 ──
+ *
+ * 位置: 桌面下方，水平居中 flex
+ * 按钮样式:
+ *   - font-family: var(--font-ui)
+ *   - font-size: 8px
+ *   - padding: 11px 16px
+ *   - border: 3px solid
+ *   - clip-path: var(--clip-xs)
+ *   - background: var(--surface)
+ *   - :active → transform: translate(2px, 2px)（像素按压感）
+ *
+ * FOLD:  color: #ff8888, border: #882222, hover-bg: #1a0808
+ * CALL:  color: #88ddaa, border: #336644, hover-bg: #081a0f
+ * RAISE: color: var(--gold-l), border: var(--gold), hover: box-shadow var(--glow-gold)
+ * ASK AI:color: var(--gold), border: var(--gold-d)
+ *
+ * RAISE 输入框:
+ *   - font-family: var(--font-label), font-size: 7px
+ *   - background: #000, border: 2px solid var(--brown)
+ *   - color: var(--gold-l), width: 80px
+ *   - :focus → border-color: var(--gold)
+ */
+
+/**
+ * ── AI COACH PANEL 规格 ──
+ *
+ * 容器:
+ *   - background: var(--surface)
+ *   - border: 4px solid var(--gold)
+ *   - box-shadow: 0 0 24px rgba(200,160,64,0.12)
+ *   - padding: 20px 22px
+ *   - ::before: 顶部金色渐变高光线 height:3px
+ *
+ * 内部结构:
+ *   1. ai-title: font-size: 7px, color: var(--gold), letter-spacing: 2px
+ *   2. ai-rec: font-family: var(--font-ui), font-size: 12px
+ *      RAISE → color: #ffcc00 + text-shadow glow
+ *      FOLD  → color: #ff8888
+ *      CALL  → color: #88ddaa
+ *   3. ai-body: font-family: var(--font-ai), font-size: 22px, line-height: 2.1
+ *      ↳ 内联 XS 牌（InlineCard 组件）穿插在文字中
+ *   4. ai-stats: flex wrap, border-top: 2px solid var(--brown)
+ *      每个 stat: border: 2px solid var(--brown), padding: 7px 12px
+ *      值颜色: good=#66cc88, bad=#cc6666, hot=#ffcc00
+ *
+ * InlineCard（XS）内联牌渲染规则:
+ *   - AI 返回文本中所有 "rank+suit" 格式（如 Q♥ A♠ 7♦）自动替换为 XS Card 组件
+ *   - 解析正则: /([2-9TJQKA])([♥♠♦♣])/g
+ *   - rank: 左上角，font-size: 11px，Georgia serif，font-weight: 900
+ *   - suit: 右下角绝对定位，font-size: 13px
+ *   - ♥♦ → color: var(--red)；♠♣ → color: var(--black)
+ *   - display: inline-flex, vertical-align: middle, margin: 0 2px, top: -2px
+ */

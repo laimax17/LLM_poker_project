@@ -1,0 +1,438 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>布局 v3 — 左3右2</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Silkscreen:wght@400;700&family=VT323&display=swap');
+
+:root {
+  --bg:      #1a1008;
+  --gold:    #c8a040;
+  --gold-l:  #e8d080;
+  --gold-d:  #6b4c10;
+  --brown:   #3a2a08;
+  --surface: #0a0900;
+  --red:     #cc1111;
+  --black:   #111111;
+  --felt-c:  #1a3a1a;
+  --felt-e:  #081508;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  background: var(--bg);
+  font-family: 'Press Start 2P', monospace;
+  min-height: 100vh;
+  display: flex; flex-direction: column; align-items: center;
+}
+body::after {
+  content: '';
+  position: fixed; inset: 0;
+  background: repeating-linear-gradient(0deg, transparent, transparent 3px, rgba(0,0,0,0.04) 3px, rgba(0,0,0,0.04) 4px);
+  pointer-events: none; z-index: 9999;
+}
+
+/* ── HEADER ── */
+.header {
+  width: 100%;
+  background: var(--surface);
+  border-bottom: 4px solid var(--gold);
+  padding: 14px 28px;
+  display: flex; justify-content: space-between; align-items: center;
+}
+.logo { font-family: 'Silkscreen', monospace; font-size: 18px; color: var(--gold); text-shadow: 2px 2px 0 var(--gold-d); letter-spacing: 3px; }
+.logo span { color: var(--gold-l); }
+.hud { font-size: 6px; color: var(--gold); display: flex; gap: 20px; }
+.hud b { color: var(--gold-l); }
+
+/* ── MAIN TABLE AREA ── */
+.table-area {
+  width: 100%; max-width: 960px;
+  padding: 20px 16px;
+  display: grid;
+  grid-template-columns: 160px 1fr 160px;
+  grid-template-rows: auto auto;
+  gap: 0;
+  align-items: stretch;
+}
+
+/* ── FELT (center column, spans both rows) ── */
+.felt-wrap {
+  grid-column: 1 / 4;
+  grid-row: 1 / 3;
+  position: relative;
+}
+
+.felt {
+  width: 100%; height: 100%;
+  min-height: 480px;
+  background: radial-gradient(ellipse 80% 70% at 50% 42%, var(--felt-c) 0%, #122012 55%, var(--felt-e) 100%);
+  border: 5px solid var(--gold);
+  box-shadow: 0 0 0 2px var(--gold-d), inset 0 0 60px rgba(0,0,0,0.45), 0 0 40px rgba(200,160,64,0.06);
+  position: relative;
+}
+.felt::before { content: ''; position: absolute; top: 6px; left: 6px; width: 18px; height: 18px; border-top: 3px solid var(--gold); border-left: 3px solid var(--gold); }
+.felt::after  { content: ''; position: absolute; top: 6px; right: 6px; width: 18px; height: 18px; border-top: 3px solid var(--gold); border-right: 3px solid var(--gold); }
+
+/* ── BOT COLUMNS (overlaid on felt sides) ── */
+.bots-left, .bots-right {
+  position: absolute;
+  top: 24px;
+  display: flex; flex-direction: column; gap: 10px;
+}
+.bots-left  { left: 16px; }
+.bots-right { right: 16px; align-items: flex-end; }
+
+/* ── TABLE CENTER (pot + community cards) ── */
+.table-center {
+  position: absolute;
+  top: 50%; left: 50%;
+  transform: translate(-50%, -58%);
+  display: flex; flex-direction: column; align-items: center; gap: 10px;
+}
+.pot-label {
+  font-size: 7px; color: var(--gold-l);
+  letter-spacing: 2px; text-shadow: 0 0 6px var(--gold);
+}
+.community { display: flex; gap: 8px; }
+
+/* ── HUMAN AREA (bottom of felt) ── */
+.human-area {
+  position: absolute;
+  bottom: 20px; left: 0; right: 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  padding: 0 20px;
+}
+
+/* hole cards centered at bottom */
+.hole-cards {
+  position: absolute;
+  bottom: 20px; left: 50%; transform: translateX(-50%);
+  display: flex; flex-direction: column; align-items: center; gap: 8px;
+}
+.hole-label {
+  font-size: 5px; color: var(--gold-d); letter-spacing: 2px;
+  animation: blink 1s steps(1) infinite;
+}
+@keyframes blink { 0%,49%{opacity:1}50%,100%{opacity:0.2} }
+.hole-row { display: flex; gap: 10px; }
+
+/* player info box — bottom right, bigger */
+.player-info {
+  position: absolute;
+  bottom: 16px; right: 16px;
+  background: var(--surface);
+  border: 3px solid var(--gold-l);
+  box-shadow: 0 0 20px rgba(232,208,128,0.2), 3px 3px 0 #000;
+  padding: 12px 16px;
+  min-width: 150px;
+  clip-path: polygon(5px 0%, calc(100% - 5px) 0%, 100% 5px, 100% calc(100% - 5px), calc(100% - 5px) 100%, 5px 100%, 0% calc(100% - 5px), 0% 5px);
+}
+.player-name-big {
+  font-family: 'Silkscreen', monospace;
+  font-size: 11px; color: var(--gold-l);
+  text-shadow: 0 0 8px rgba(232,208,128,0.5);
+  margin-bottom: 5px; letter-spacing: 1px;
+}
+.player-chips-big {
+  font-size: 8px; color: var(--gold); margin-bottom: 4px;
+}
+.player-tag {
+  display: inline-block;
+  font-size: 5px; background: var(--gold); color: #000;
+  padding: 2px 5px; margin-bottom: 6px;
+}
+.player-status-row {
+  font-size: 6px; color: #66cc88;
+}
+
+/* ── BOT PLAYER BOX ── */
+.pbox {
+  background: rgba(10, 9, 0, 0.88);
+  border: 2px solid var(--brown);
+  padding: 8px 10px;
+  width: 150px;
+  position: relative;
+  clip-path: polygon(4px 0%, calc(100% - 4px) 0%, 100% 4px, 100% calc(100% - 4px), calc(100% - 4px) 100%, 4px 100%, 0% calc(100% - 4px), 0% 4px);
+}
+.pbox.active {
+  border-color: var(--gold);
+  box-shadow: 0 0 14px rgba(200,160,64,0.45);
+  animation: gold-pulse 0.8s steps(1) infinite;
+}
+.pbox.folded { opacity: 0.3; }
+@keyframes gold-pulse { 0%,49%{border-color:var(--gold)}50%,100%{border-color:var(--gold-d)} }
+
+.pbox-badge {
+  position: absolute; top: -8px; right: 5px;
+  background: var(--gold); color: #000;
+  font-size: 4px; padding: 2px 5px;
+  font-family: 'Silkscreen', monospace;
+}
+.pbox-name  { font-family: 'Silkscreen', monospace; font-size: 7px; color: var(--gold); margin-bottom: 4px; }
+.pbox-chips { font-size: 5px; color: var(--gold-l); margin-bottom: 3px; }
+.pbox-status { font-size: 5px; }
+.s-bet  { color: #ffcc00; }
+.s-call { color: #66cc88; }
+.s-fold { color: var(--brown); }
+
+.pbox-cards { display: flex; gap: 3px; margin-top: 5px; }
+
+/* chip bubble */
+.chip-bubble {
+  font-family: 'Silkscreen', monospace; font-size: 5px;
+  background: #1a0e00; border: 1px solid var(--gold-d);
+  color: var(--gold); padding: 2px 6px;
+  align-self: center;
+}
+
+/* ── CARDS ── */
+.card {
+  background: #fff;
+  border: 3px solid #d0c8b8;
+  position: relative;
+  flex-shrink: 0;
+}
+.card .tl { position: absolute; top: 5px; left: 6px; line-height: 1; }
+.card .cs { position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%); line-height: 1; user-select: none; }
+.card.back { background: #1c2a1c; border-color: #2a4a2a; }
+.card.back::before {
+  content: ''; position: absolute; inset: 4px;
+  border: 1px solid rgba(200,160,64,0.18);
+  background-image:
+    repeating-linear-gradient( 45deg, rgba(200,160,64,0.07) 0, rgba(200,160,64,0.07) 1px, transparent 1px, transparent 8px),
+    repeating-linear-gradient(-45deg, rgba(200,160,64,0.07) 0, rgba(200,160,64,0.07) 1px, transparent 1px, transparent 8px);
+}
+.card.glow-gold { border-color: var(--gold); box-shadow: 3px 3px 0 #000, 0 0 14px rgba(200,160,64,0.5); }
+.card.glow-red  { border-color: var(--red);  box-shadow: 3px 3px 0 #000, 0 0 14px rgba(204,17,17,0.45); }
+.card.plain     { box-shadow: 3px 3px 0 #000; }
+
+/* LG — community cards */
+.card.lg {
+  width: 62px; height: 88px;
+  clip-path: polygon(5px 0%, calc(100% - 5px) 0%, 100% 5px, 100% calc(100% - 5px), calc(100% - 5px) 100%, 5px 100%, 0% calc(100% - 5px), 0% 5px);
+  box-shadow: 3px 3px 0 #000;
+}
+.card.lg .tl .rank { font-size: 20px; font-weight: 900; font-family: Georgia, serif; }
+.card.lg .cs       { font-size: 40px; }
+
+/* MD — human hole cards */
+.card.md {
+  width: 58px; height: 82px;
+  clip-path: polygon(5px 0%, calc(100% - 5px) 0%, 100% 5px, 100% calc(100% - 5px), calc(100% - 5px) 100%, 5px 100%, 0% calc(100% - 5px), 0% 5px);
+}
+.card.md .tl .rank { font-size: 18px; font-weight: 900; font-family: Georgia, serif; }
+.card.md .cs       { font-size: 36px; }
+
+/* SM — bot cards */
+.card.sm {
+  width: 30px; height: 42px;
+  clip-path: polygon(3px 0%, calc(100% - 3px) 0%, 100% 3px, 100% calc(100% - 3px), calc(100% - 3px) 100%, 3px 100%, 0% calc(100% - 3px), 0% 3px);
+  box-shadow: 1px 1px 0 #000;
+  border-width: 2px;
+}
+.card.sm .tl { top: 3px; left: 4px; }
+.card.sm .tl .rank { font-size: 10px; font-weight: 900; font-family: Georgia, serif; }
+.card.sm .cs { font-size: 16px; }
+
+.r { color: var(--red); }
+.b { color: var(--black); }
+
+/* ── ACTION BAR ── */
+.action-bar {
+  width: 100%; max-width: 960px;
+  display: flex; gap: 8px; justify-content: center; flex-wrap: wrap;
+  padding: 16px 16px 10px;
+}
+.abtn {
+  font-family: 'Silkscreen', monospace; font-size: 8px;
+  padding: 11px 16px; border: 3px solid; cursor: pointer;
+  background: var(--surface); letter-spacing: 1px;
+  clip-path: polygon(3px 0%, calc(100% - 3px) 0%, 100% 3px, 100% calc(100% - 3px), calc(100% - 3px) 100%, 3px 100%, 0% calc(100% - 3px), 0% 3px);
+}
+.abtn:active { transform: translate(2px,2px); }
+.abtn-fold  { color: #ff8888; border-color: #882222; }
+.abtn-fold:hover  { background: #1a0808; }
+.abtn-call  { color: #88ddaa; border-color: #336644; }
+.abtn-call:hover  { background: #081a0f; }
+.abtn-raise { color: var(--gold-l); border-color: var(--gold); }
+.abtn-raise:hover { background: #1a1204; box-shadow: 0 0 10px rgba(200,160,64,0.3); }
+.abtn-ai    { color: var(--gold); border-color: var(--gold-d); }
+.abtn-ai:hover    { background: #1a1204; }
+.raise-inp {
+  font-family: 'Press Start 2P', monospace; font-size: 7px;
+  background: #000; border: 2px solid var(--brown); color: var(--gold-l);
+  padding: 11px 10px; width: 80px; outline: none;
+}
+.raise-inp:focus { border-color: var(--gold); }
+
+/* ── LLM BAR ── */
+.llm-bar { width: 100%; max-width: 960px; padding: 0 16px 20px; }
+.llm-inner {
+  background: var(--surface); border: 2px solid var(--brown);
+  padding: 9px 14px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+}
+.llm-lbl { font-size: 5px; color: var(--gold-d); letter-spacing: 1px; }
+.llm-sel {
+  font-family: 'Press Start 2P', monospace; font-size: 5px;
+  background: #000; border: 2px solid var(--brown); color: var(--gold);
+  padding: 4px 6px; outline: none; cursor: pointer;
+}
+.llm-sel:focus { border-color: var(--gold); }
+.sdot { display: inline-block; width: 6px; height: 6px; background: #44cc66; box-shadow: 0 0 5px #44cc66; margin-right: 5px; animation: dp 1.2s steps(1) infinite; }
+@keyframes dp { 0%,49%{opacity:1}50%,100%{opacity:0.2} }
+.llm-status { font-size: 5px; color: #44cc66; margin-left: auto; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="logo">CYBER <span>HOLD'EM</span></div>
+  <div class="hud">
+    <div>BLIND <b>$25/$50</b></div>
+    <div>HAND <b>#047</b></div>
+    <div>STREET <b>TURN</b></div>
+  </div>
+</div>
+
+<div class="table-area">
+  <div class="felt-wrap">
+  <div class="felt">
+
+    <!-- ── LEFT BOTS (3) ── -->
+    <div class="bots-left">
+
+      <div style="display:flex;align-items:center;gap:8px">
+        <div class="pbox active">
+          <div class="pbox-badge">BTN</div>
+          <div class="pbox-name">SHADOW_AI</div>
+          <div class="pbox-chips">$2,780</div>
+          <div class="pbox-status s-bet">BET $120 ▌</div>
+          <div class="pbox-cards">
+            <div class="card sm back"></div>
+            <div class="card sm back"></div>
+          </div>
+        </div>
+        <div class="chip-bubble">$120</div>
+      </div>
+
+      <div class="pbox">
+        <div class="pbox-badge">SB</div>
+        <div class="pbox-name">VOID_77</div>
+        <div class="pbox-chips">$890</div>
+        <div class="pbox-status s-call">CALL $120</div>
+        <div class="pbox-cards">
+          <div class="card sm back"></div>
+          <div class="card sm back"></div>
+        </div>
+      </div>
+
+      <div class="pbox folded">
+        <div class="pbox-name">NOVA_BOT</div>
+        <div class="pbox-chips">$1,240</div>
+        <div class="pbox-status s-fold">FOLD</div>
+        <div class="pbox-cards">
+          <div class="card sm back"></div>
+          <div class="card sm back"></div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- ── RIGHT BOTS (2) ── -->
+    <div class="bots-right">
+
+      <div style="display:flex;align-items:center;gap:8px;flex-direction:row-reverse">
+        <div class="pbox">
+          <div class="pbox-badge">BB</div>
+          <div class="pbox-name">CIPHER</div>
+          <div class="pbox-chips">$2,050</div>
+          <div class="pbox-status s-call">CALL $120</div>
+          <div class="pbox-cards">
+            <div class="card sm back"></div>
+            <div class="card sm back"></div>
+          </div>
+        </div>
+        <div class="chip-bubble">$120</div>
+      </div>
+
+      <div class="pbox folded">
+        <div class="pbox-name">GLITCH_X</div>
+        <div class="pbox-chips">$3,100</div>
+        <div class="pbox-status s-fold">FOLD</div>
+        <div class="pbox-cards">
+          <div class="card sm back"></div>
+          <div class="card sm back"></div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- ── TABLE CENTER ── -->
+    <div class="table-center">
+      <div class="pot-label">◈ POT : $380 ◈</div>
+      <div class="community">
+        <div class="card lg glow-gold"><div class="tl"><span class="rank b">A</span></div><div class="cs b">♠</div></div>
+        <div class="card lg glow-gold"><div class="tl"><span class="rank r">K</span></div><div class="cs r">♥</div></div>
+        <div class="card lg glow-gold"><div class="tl"><span class="rank r">7</span></div><div class="cs r">♦</div></div>
+        <div class="card lg glow-gold"><div class="tl"><span class="rank b">J</span></div><div class="cs b">♣</div></div>
+        <div class="card lg" style="opacity:0.2;border-style:dashed;background:transparent;box-shadow:none"><div class="cs" style="font-size:28px;color:#2a4a2a">?</div></div>
+      </div>
+    </div>
+
+    <!-- ── HOLE CARDS — bottom center ── -->
+    <div class="hole-cards">
+      <div class="hole-label">▼ YOUR HAND</div>
+      <div class="hole-row">
+        <div class="card md glow-red"><div class="tl"><span class="rank r">Q</span></div><div class="cs r">♥</div></div>
+        <div class="card md glow-red"><div class="tl"><span class="rank r">T</span></div><div class="cs r">♦</div></div>
+      </div>
+    </div>
+
+    <!-- ── PLAYER INFO — bottom right ── -->
+    <div class="player-info">
+      <div class="player-tag">YOU</div>
+      <div class="player-name-big">PLAYER_1</div>
+      <div class="player-chips-big">$4,820</div>
+      <div class="player-status-row">● IN POSITION</div>
+    </div>
+
+  </div><!-- /felt -->
+  </div><!-- /felt-wrap -->
+</div><!-- /table-area -->
+
+<!-- ACTION BAR -->
+<div class="action-bar">
+  <button class="abtn abtn-fold">FOLD</button>
+  <button class="abtn abtn-call">CALL $120</button>
+  <input class="raise-inp" type="number" value="280">
+  <button class="abtn abtn-raise">RAISE ▲</button>
+  <button class="abtn abtn-ai">◈ ASK AI</button>
+</div>
+
+<!-- LLM BAR -->
+<div class="llm-bar">
+  <div class="llm-inner">
+    <span class="llm-lbl">AI ENGINE</span>
+    <select class="llm-sel">
+      <option>RULE-BASED</option>
+      <option selected>QWEN LOCAL</option>
+      <option>QWEN-PLUS</option>
+      <option>QWEN-MAX</option>
+    </select>
+    <span class="llm-lbl">MODEL</span>
+    <select class="llm-sel">
+      <option selected>qwen2.5:7b</option>
+      <option>qwen2.5:14b</option>
+      <option>qwen-plus</option>
+    </select>
+    <div class="llm-status"><span class="sdot"></span>LOCAL ONLINE</div>
+  </div>
+</div>
+
+</body>
+</html>

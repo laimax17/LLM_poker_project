@@ -1,170 +1,255 @@
-from typing import Dict, Any, Optional
-from fastapi import FastAPI, HTTPException
-from fastapi.middleware.cors import CORSMiddleware
+"""
+FastAPI + Socket.IO main entry point for Cyber Hold'em backend.
+"""
+from __future__ import annotations
+
+import asyncio
+import logging
+import os
+import random
+from typing import Any, Optional
+
 import socketio
 import uvicorn
-import asyncio
-import random
-from .engine import PokerEngine, Player
-from .ai_service import AIAgent
-from .schemas import ActionRequest, GameStateModel, PlayerModel
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
 
-# Initialize FastAPI and Socket.IO
-app = FastAPI()
+from .engine import PokerEngine
+from .schemas import AIThought
+from .ai.rule_based import RuleBasedStrategy
+from .ai.llm_strategy import LLMBotStrategy
+from .ai.coach import AICoach
+from .ai.ollama import OllamaClient
+from .ai.qwen import QwenClient
+from .ai.strategy import BotStrategy
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+# ─── App setup ────────────────────────────────────────────────────────────────
+app = FastAPI(title="Cyber Hold'em API")
 sio = socketio.AsyncServer(async_mode='asgi', cors_allowed_origins='*')
 socket_app = socketio.ASGIApp(sio, app)
 
-# CORS Setup
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=['*'],
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=['*'],
+    allow_headers=['*'],
 )
 
-# Game State
+# ─── Global state ─────────────────────────────────────────────────────────────
 engine = PokerEngine()
-ai_agent: Optional[AIAgent] = None
+_strategy: BotStrategy = RuleBasedStrategy()
+_coach: Optional[AICoach] = None
+_llm_engine: str = os.environ.get('DEFAULT_AI_ENGINE', 'rule-based')
+_llm_model: str = ''
 
-@app.get("/")
-def read_root():
-    return {"status": "ok", "message": "Poker Backend Running"}
 
-@app.post("/start-game")
-async def start_game():
-    global ai_agent
-    try:
-        engine.players = []
-        # Human at Seat 0 (Bottom)
-        engine.add_player("human", "Player (You)", 1000)
-        
-        # 5 AI Bots
-        for i in range(1, 6):
-            engine.add_player(f"bot_{i}", f"Bot {i}", 1000)
-        
-        # Initialize AI Agent (Singleton for now, or we can make one per bot)
-        # For simple logic, one instance is fine if it just processes state.
-        ai_agent = AIAgent("ai", mode="simple", personality="Aggressive") 
-        
-        engine.start_hand()
-        await broadcast_state()
-        
-        # Trigger first turn
-        await check_ai_turn()
-        return {"status": "started"}
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+# ─── Strategy factory ─────────────────────────────────────────────────────────
+def _build_strategy(engine_name: str, model: str) -> tuple[BotStrategy, Optional[AICoach]]:
+    """Return (strategy, coach) pair for the given engine name."""
+    if engine_name == 'ollama':
+        client = OllamaClient(model=model or None)
+        return LLMBotStrategy(client), AICoach(client)
+    if engine_name in ('qwen-plus', 'qwen-max'):
+        client = QwenClient(model=model or engine_name)
+        return LLMBotStrategy(client), AICoach(client)
+    return RuleBasedStrategy(), None
 
-async def check_ai_turn():
-    # Loop continuously while it's ANY bot's turn
+
+# Initialise from env
+_strategy, _coach = _build_strategy(_llm_engine, _llm_model)
+
+
+# ─── Helpers ──────────────────────────────────────────────────────────────────
+async def broadcast_state() -> None:
+    """Emit game state (human POV + is_dealer augmentation) to all clients."""
+    state = engine.get_public_game_state('human')
+    total = len(engine.players)
+    dealer_idx = engine.dealer_idx % total if total else 0
+    for i, p_data in enumerate(state['players']):
+        p_data['is_dealer'] = (i == dealer_idx)
+    await sio.emit('game_state', state)
+
+
+async def check_ai_turn() -> None:
+    """Drive bot turns until the human must act or the hand ends."""
     while True:
+        if engine.state.value in ('FINISHED', 'SHOWDOWN'):
+            break
         try:
-             # Get current game state to check who's turn it is
-             # We need 'internal' state to know who is acting, but engine.get_public_game_state masks it?
-             # Engine state properties are accessible directly on `engine`.
-             if engine.state.value == "FINISHED":
-                 break
-                 
-             current_p = engine.players[engine.current_player_idx]
+            current_p = engine.players[engine.current_player_idx]
         except IndexError:
-             break 
-             
-        # If current player is a BOT (starts with 'bot_')
-        if current_p.id.startswith("bot_") and current_p.is_active and not current_p.is_all_in:
-            # Simulate Thinking Delay
-            delay = random.uniform(0.5, 1.0)
-            await asyncio.sleep(delay)
-            
-            # Get State specific to THIS bot (so it sees its own cards)
-            # engine.get_public_game_state(current_p.id)
-            # But wait, our `AIAgent` is initialized with `player_id="ai"`.
-            # We need to pass the dynamic ID to `decide`.
-            # Or make a new agent instance?
-            # Let's just update the agent's ID or pass it.
-            # `ai_service.py` uses `self.player_id` in `decide`. 
-            # We should probably instantiate a new agent or change `decide` signature.
-            # Easier: Just modify `decide` to accept `player_id` or set it on the fly.
-            ai_agent.player_id = current_p.id
-            
-            # Get state for THIS bot
-            state_for_bot = engine.get_public_game_state(current_p.id)
-            
-            decision = ai_agent.decide(state_for_bot)
-            
-            # Broadcast "thinking" or "chat" if desired (optional)
-            if decision.chat_message:
-                await sio.emit("ai_thought", {
-                    "player_id": current_p.id,
-                    "thought": decision.thought,
-                    "chat": decision.chat_message
-                })
-            
-            try:
-                engine.player_action(current_p.id, decision.action, decision.amount)
-            except Exception as e:
-                print(f"Bot {current_p.id} Action Error: {e}")
-                # Fallback
-                try:
-                    engine.player_action(current_p.id, "fold", 0)
-                except:
-                    pass
-            
-            await broadcast_state()
-        else:
-            # Human turn or game over
             break
 
-@sio.event
-async def player_action(sid, data):
-    # data: {"action": "fold|call|raise", "amount": <int>}
-    print(f"📥 Backend received [player_action] event. Data: {data}")
-    try:
-        # Validate input
-        # req = ActionRequest(**data) # Strict validation
-        action = data.get("action")
-        amount = data.get("amount", 0)
-        
-        current_player = engine.players[engine.current_player_idx]
-        print(f"🔍 Turn Check - Current Player: {current_player.id} ({current_player.name})")
-        
-        # Human turn check
-        # For 6-Max, we must ensure it IS the human's turn.
-        # Ideally we map sid to player_id, but for now we hardcode "human".
-        if current_player.id != "human":
-             print(f"⛔ Rejected: It is Player {current_player.id}'s turn, but 'human' tried to act.")
-             await sio.emit("error", {"message": "Not your turn!"}, to=sid)
-             return
+        if not (current_p.id.startswith('bot_') and current_p.is_active and not current_p.is_all_in):
+            break
 
-        # Human turn?
-        # For MVP, assume 'human' ID is mapped to socket user.
-        print(f"✅ Executing Human Action: {action}, Amount: {amount}")
-        engine.player_action("human", action, amount)
+        await asyncio.sleep(random.uniform(0.5, 1.2))
+        state_for_bot = engine.get_public_game_state(current_p.id)
+
+        try:
+            if isinstance(_strategy, LLMBotStrategy):
+                decision = await _strategy.decide_async(state_for_bot, current_p.id)
+            else:
+                decision = _strategy.decide(state_for_bot, current_p.id)
+        except Exception as exc:
+            logger.error('Strategy.decide failed for %s: %s', current_p.id, exc)
+            decision = AIThought(action='fold', amount=0, thought='error fallback', chat_message='...')
+
+        if decision.chat_message:
+            await sio.emit('ai_thought', {
+                'player_id': current_p.id,
+                'thought': decision.thought,
+                'chat': decision.chat_message,
+            })
+
+        try:
+            engine.player_action(current_p.id, decision.action, decision.amount)
+        except Exception as exc:
+            logger.error('engine.player_action error %s (action=%s): %s', current_p.id, decision.action, exc)
+            try:
+                engine.player_action(current_p.id, 'fold', 0)
+            except Exception:
+                pass
+
         await broadcast_state()
 
-        # If it's now AI's turn, trigger AI
-        await check_ai_turn()
-        
-    except Exception as e:
-        print(f"❌ Action Error: {e}")
-        await sio.emit("error", {"message": str(e)}, to=sid)
+
+# ─── HTTP endpoints ────────────────────────────────────────────────────────────
+@app.get('/')
+def read_root() -> dict[str, str]:
+    return {'status': 'ok', 'message': "Cyber Hold'em backend running"}
+
+
+@app.get('/health')
+async def health() -> dict[str, Any]:
+    llm_ok: Optional[bool] = None
+    if isinstance(_strategy, LLMBotStrategy):
+        llm_ok = await _strategy.llm.health_check()
+    return {
+        'status': 'ok',
+        'engine': _llm_engine,
+        'model': _llm_model,
+        'llm_connected': llm_ok,
+    }
+
+
+@app.post('/start-game')
+async def start_game() -> dict[str, str]:
+    engine.players = []
+    engine.add_player('human', 'PLAYER', 5000)
+    for i in range(1, 6):
+        engine.add_player(f'bot_{i}', f'BOT-{i}', 5000)
+    engine.start_hand()
+    await broadcast_state()
+    await check_ai_turn()
+    return {'status': 'started'}
+
+
+class AIConfigRequest(BaseModel):
+    engine: str
+    model: str
+
+
+@app.get('/ai/config')
+def get_ai_config() -> dict[str, str]:
+    return {'engine': _llm_engine, 'model': _llm_model}
+
+
+@app.post('/ai/config')
+async def set_ai_config(config: AIConfigRequest) -> dict[str, str]:
+    global _strategy, _coach, _llm_engine, _llm_model
+    _llm_engine = config.engine
+    _llm_model = config.model
+    _strategy, _coach = _build_strategy(config.engine, config.model)
+    logger.info('AI config updated via HTTP: engine=%s model=%s', config.engine, config.model)
+    return {'status': 'ok', 'engine': _llm_engine, 'model': _llm_model}
+
+
+# ─── Socket.IO events ─────────────────────────────────────────────────────────
 @sio.event
-async def start_next_hand(sid, data):
-    print(f"🔄 Starting Next Hand requested by {sid}")
+async def player_action(sid: str, data: dict[str, Any]) -> None:
+    logger.info('player_action from %s: %s', sid, data)
+    try:
+        action = data.get('action')
+        amount = int(data.get('amount', 0))
+        current_player = engine.players[engine.current_player_idx]
+        if current_player.id != 'human':
+            await sio.emit('error', {'message': 'Not your turn!'}, to=sid)
+            return
+        engine.player_action('human', action, amount)
+        await broadcast_state()
+        await check_ai_turn()
+    except Exception as exc:
+        logger.error('player_action error: %s', exc)
+        await sio.emit('error', {'message': str(exc)}, to=sid)
+
+
+@sio.event
+async def start_next_hand(sid: str, data: dict[str, Any]) -> None:
+    logger.info('start_next_hand from %s', sid)
     try:
         engine.start_hand()
         await broadcast_state()
-        
-        # Trigger AI if it's their turn (e.g. SB/BB logic)
         await check_ai_turn()
-    except Exception as e:
-        print(f"❌ Next Hand Error: {e}")
-        await sio.emit("error", {"message": str(e)}, to=sid)
+    except Exception as exc:
+        logger.error('start_next_hand error: %s', exc)
+        await sio.emit('error', {'message': str(exc)}, to=sid)
 
-async def broadcast_state():
-    # We broadcast the "Human Perspective" to everyone for now (since only 1 human)
-    state = engine.get_public_game_state("human")
-    await sio.emit("game_state", state)
 
-if __name__ == "__main__":
-    uvicorn.run(socket_app, host="0.0.0.0", port=8000)
+@sio.event
+async def request_advice(sid: str, data: dict[str, Any]) -> None:
+    logger.info('request_advice from %s: engine=%s', sid, data.get('engine'))
+    global _strategy, _coach, _llm_engine, _llm_model
+
+    req_engine = data.get('engine', _llm_engine)
+    req_model = data.get('model', _llm_model)
+    if req_engine != _llm_engine or req_model != _llm_model:
+        _llm_engine = req_engine
+        _llm_model = req_model
+        _strategy, _coach = _build_strategy(req_engine, req_model)
+
+    if _coach is None:
+        await sio.emit('ai_advice', {
+            'recommendation': 'CHECK',
+            'body': '请先在 LLM 配置栏选择 Ollama 或 Qwen AI 引擎以使用 AI Coach。',
+            'stats': [{'label': '状态', 'value': 'NO LLM', 'quality': 'bad'}],
+        }, to=sid)
+        return
+
+    try:
+        state = engine.get_public_game_state('human')
+        advice = await _coach.analyze(state, 'human')
+        await sio.emit('ai_advice', advice, to=sid)
+    except Exception as exc:
+        logger.error('request_advice error: %s', exc)
+        await sio.emit('ai_advice', {
+            'recommendation': 'CHECK',
+            'body': f'AI Coach 出错：{exc}',
+            'stats': [{'label': '状态', 'value': 'ERROR', 'quality': 'bad'}],
+        }, to=sid)
+
+
+@sio.event
+async def set_llm_config(sid: str, data: dict[str, Any]) -> None:
+    global _strategy, _coach, _llm_engine, _llm_model
+    engine_name = data.get('engine', 'rule-based')
+    model = data.get('model', '')
+    _llm_engine = engine_name
+    _llm_model = model
+    _strategy, _coach = _build_strategy(engine_name, model)
+    logger.info('LLM config via socket: engine=%s model=%s', engine_name, model)
+
+    if isinstance(_strategy, LLMBotStrategy):
+        healthy = await _strategy.llm.health_check()
+        await sio.emit('llm_status', {'status': 'online' if healthy else 'offline'}, to=sid)
+    else:
+        await sio.emit('llm_status', {'status': 'online'}, to=sid)
+
+
+if __name__ == '__main__':
+    uvicorn.run(socket_app, host='0.0.0.0', port=8000)
