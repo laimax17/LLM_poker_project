@@ -188,6 +188,12 @@ class PokerEngine:
         self._place_bet_logic(self.players[bb_idx], self.big_blind)
         
         self.current_player_idx = (self.dealer_idx + 3) % len(self.players)
+        # Skip all-in or inactive players
+        steps = 0
+        while not (self.players[self.current_player_idx].is_active and not self.players[self.current_player_idx].is_all_in) and steps < len(self.players):
+            self.current_player_idx = (self.current_player_idx + 1) % len(self.players)
+            steps += 1
+
         self.current_bet = self.big_blind
         self.raise_count = 0
 
