@@ -142,6 +142,8 @@ class PokerEngine:
         self.small_blind: int = 10
         self.big_blind: int = 20
         self.min_raise: int = 20
+        self.raise_count: int = 0
+        self.max_raises_per_street: int = 4
 
     def reset_deck(self):
         self.deck = [Card(r, s) for r in Rank for s in Suit]
@@ -187,6 +189,7 @@ class PokerEngine:
         
         self.current_player_idx = (self.dealer_idx + 3) % len(self.players)
         self.current_bet = self.big_blind
+        self.raise_count = 0
 
     def _place_bet_logic(self, player: Player, amount: int):
         actual = min(player.chips, amount)
@@ -218,15 +221,20 @@ class PokerEngine:
             needed = self.current_bet - p.current_bet
             self._place_bet_logic(p, needed)
         elif action == "raise":
+            if self.raise_count >= self.max_raises_per_street:
+                raise ValueError(f"Raise cap reached ({self.max_raises_per_street} raises per street)")
             if amount < self.current_bet + self.min_raise:
                  if amount < p.chips + p.current_bet:
                      raise ValueError(f"Raise too small. Min total: {self.current_bet + self.min_raise}")
-            
+
             added = amount - p.current_bet
             if added > p.chips:
                 raise ValueError("Not enough chips")
             self._place_bet_logic(p, added)
+            self.raise_count += 1
         elif action == "allin":
+            if p.chips + p.current_bet > self.current_bet:
+                self.raise_count += 1
             self._place_bet_logic(p, p.chips)
 
         p.has_acted = True
@@ -263,6 +271,7 @@ class PokerEngine:
     def _next_street(self):
         self.current_bet = 0
         self.min_raise = self.big_blind
+        self.raise_count = 0
         for p in self.players:
             p.current_bet = 0
             p.has_acted = False
@@ -327,8 +336,8 @@ class PokerEngine:
             
             self.winners = [w.id for w in winners_list]
             self.winning_hand_rank = best[1].name.replace("_", " ").title()
-            
-        # NOTE: Dealer rotation happens in start_hand/next_hand now.
+
+        self.state = GameState.FINISHED
 
     def get_public_game_state(self, observer_id: str):
         # Base state
@@ -340,6 +349,9 @@ class PokerEngine:
             "current_player_idx": self.current_player_idx,
             "current_bet": self.current_bet,
             "min_raise": self.min_raise,
+            "raise_count": self.raise_count,
+            "max_raises_per_street": self.max_raises_per_street,
+            "can_raise": self.raise_count < self.max_raises_per_street,
             "winners": getattr(self, "winners", []),
             "winning_hand": getattr(self, "winning_hand_rank", "")
         }
