@@ -36,9 +36,9 @@
   --font-label: 'Press Start 2P', monospace;
 
   /* === Shadows === */
-  --shadow-card-lg: 4px 4px 0 #000;
+  --shadow-card-lg: 3px 3px 0 #000;
   --shadow-card-md: 3px 3px 0 #000;
-  --shadow-card-sm: 2px 2px 0 #000;
+  --shadow-card-sm: 1px 1px 0 #000;
   --shadow-card-xs: 1px 1px 0 #000;
 
   /* === Glows === */
@@ -47,7 +47,7 @@
   --glow-green: 0 0 10px rgba(102, 204, 136, 0.4);
 
   /* === Clip-Paths === */
-  --clip-lg: polygon(6px 0%, calc(100% - 6px) 0%, 100% 6px, 100% calc(100% - 6px), calc(100% - 6px) 100%, 6px 100%, 0% calc(100% - 6px), 0% 6px);
+  --clip-lg: polygon(5px 0%, calc(100% - 5px) 0%, 100% 5px, 100% calc(100% - 5px), calc(100% - 5px) 100%, 5px 100%, 0% calc(100% - 5px), 0% 5px);
   --clip-md: polygon(5px 0%, calc(100% - 5px) 0%, 100% 5px, 100% calc(100% - 5px), calc(100% - 5px) 100%, 5px 100%, 0% calc(100% - 5px), 0% 5px);
   --clip-sm: polygon(4px 0%, calc(100% - 4px) 0%, 100% 4px, 100% calc(100% - 4px), calc(100% - 4px) 100%, 4px 100%, 0% calc(100% - 4px), 0% 4px);
   --clip-xs: polygon(3px 0%, calc(100% - 3px) 0%, 100% 3px, 100% calc(100% - 3px), calc(100% - 3px) 100%, 3px 100%, 0% calc(100% - 3px), 0% 3px);
@@ -92,6 +92,18 @@
 @keyframes status-dot-pulse {
   0%, 49%  { opacity: 1; }
   50%, 100% { opacity: 0.4; }
+}
+
+/* Bot speech bubble entrance — slides in from the right (for left bots) */
+@keyframes fadeInSlide {
+  from { opacity: 0; transform: translateX(6px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
+/* Bot speech bubble entrance — slides in from the left (for right bots) */
+@keyframes fadeInSlideLeft {
+  from { opacity: 0; transform: translateX(-6px); }
+  to   { opacity: 1; transform: translateX(0); }
 }
 
 /* === Scrollbar === */

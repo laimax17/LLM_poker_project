@@ -29,6 +29,9 @@ export interface GameState {
   min_raise: number;
   winners: string[];
   winning_hand: string;
+  can_raise: boolean;
+  raise_count: number;
+  max_raises_per_street: number;
 }
 
 export type LLMEngine = 'rule-based' | 'ollama' | 'qwen-plus' | 'qwen-max';

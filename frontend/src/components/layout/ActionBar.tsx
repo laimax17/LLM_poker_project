@@ -25,7 +25,8 @@ const ActionBar: React.FC<ActionBarProps> = ({
 
   const canCheck = toCall === 0;
   const canCall = toCall > 0;
-  const canRaise = maxRaise > toCall;
+  // Fix 5: respect raise-cap flag from backend (can_raise=false when street cap reached)
+  const canRaise = maxRaise > toCall && (gameState.can_raise ?? true);
 
   function handleRaise() {
     const amt = parseInt(raiseAmount, 10);
@@ -81,7 +82,7 @@ const ActionBar: React.FC<ActionBarProps> = ({
         </button>
       )}
 
-      {/* RAISE input + button */}
+      {/* RAISE input + hint + button + ALL IN */}
       {canRaise && (
         <>
           <input
@@ -95,12 +96,32 @@ const ActionBar: React.FC<ActionBarProps> = ({
             disabled={disabled}
             onKeyDown={e => e.key === 'Enter' && handleRaise()}
           />
+          {/* Fix 8: min~max range hint */}
+          <div style={{
+            fontSize: 5,
+            color: 'var(--gold-d)',
+            fontFamily: 'var(--font-label)',
+            textAlign: 'center',
+            width: 80,
+            alignSelf: 'center',
+          }}>
+            {minRaise}~{maxRaise}
+          </div>
           <button
             className="abtn abtn-raise"
             disabled={disabled || raiseAmount === ''}
             onClick={handleRaise}
           >
             RAISE ▲
+          </button>
+          {/* Fix 6: ALL IN button */}
+          <button
+            className="abtn abtn-raise"
+            disabled={disabled}
+            onClick={() => onAction('allin', 0)}
+            style={{ borderColor: '#ffcc00', color: '#ffcc00' }}
+          >
+            ALL IN ▲ ${human?.chips}
           </button>
         </>
       )}

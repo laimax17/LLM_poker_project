@@ -4,6 +4,7 @@ import PokerTable from './components/table/PokerTable';
 import ActionBar from './components/layout/ActionBar';
 import LLMConfigBar from './components/layout/LLMConfigBar';
 import AICoachPanel from './components/ai-coach/AICoachPanel';
+import ToastNotification from './components/layout/ToastNotification';
 
 function App() {
   const {
@@ -20,10 +21,15 @@ function App() {
     showCoach,
     llmConfig,
     setLLMConfig,
+    errorMessage,
+    handCount,
   } = useGameStore();
 
   useEffect(() => {
     connect();
+    return () => {
+      useGameStore.getState().socket?.disconnect();
+    };
   }, []);
 
   const isHumanTurn =
@@ -77,6 +83,7 @@ function App() {
               <span>BLIND <b style={{ color: 'var(--gold-l)' }}>$10/$20</b></span>
               <span>STREET <b style={{ color: 'var(--gold-l)' }}>{gameState.state}</b></span>
               <span>POT <b style={{ color: 'var(--gold-l)' }}>${gameState.pot}</b></span>
+              <span>HAND <b style={{ color: 'var(--gold-l)' }}>#{String(handCount).padStart(3, '0')}</b></span>
             </>
           ) : (
             <span style={{ color: isConnected ? '#44cc66' : '#cc4444' }}>
@@ -166,6 +173,9 @@ function App() {
           </>
         )}
       </main>
+
+      {/* ─── Error Toast ─── */}
+      {errorMessage && <ToastNotification message={errorMessage} />}
 
       {/* ─── AI Coach Modal (always rendered at root level) ─── */}
       {showCoach && (
