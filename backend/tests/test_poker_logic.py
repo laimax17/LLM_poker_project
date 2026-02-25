@@ -602,3 +602,47 @@ def test_public_state_hides_opponents_hand():
     assert all(c is not None for c in p1_data["hand"])
     # p1 cannot see p2's cards
     assert all(c is None for c in p2_data["hand"])
+
+
+def test_public_state_reveals_hands_at_showdown():
+    """At a real showdown (both players go to river), all active hands are visible."""
+    engine = _engine_2p()
+    # Play through all streets to force a real showdown
+    # PREFLOP: p1 calls BB, p2 checks
+    engine.player_action(engine.players[engine.current_player_idx].id, "call")
+    engine.player_action(engine.players[engine.current_player_idx].id, "check")
+    # FLOP: both check
+    engine.player_action(engine.players[engine.current_player_idx].id, "check")
+    engine.player_action(engine.players[engine.current_player_idx].id, "check")
+    # TURN: both check
+    engine.player_action(engine.players[engine.current_player_idx].id, "check")
+    engine.player_action(engine.players[engine.current_player_idx].id, "check")
+    # RIVER: both check → triggers showdown
+    engine.player_action(engine.players[engine.current_player_idx].id, "check")
+    engine.player_action(engine.players[engine.current_player_idx].id, "check")
+
+    assert engine.state == GameState.FINISHED
+    assert engine.winning_hand_rank != "Opponents Folded"
+    assert len(engine.winners) > 0
+
+    state = engine.get_public_game_state("p1")
+    p1_data = next(p for p in state["players"] if p["id"] == "p1")
+    p2_data = next(p for p in state["players"] if p["id"] == "p2")
+    # Both players are active (neither folded), so both hands must be visible
+    assert all(c is not None for c in p1_data["hand"]), "p1 hand should be visible at showdown"
+    assert all(c is not None for c in p2_data["hand"]), "p2 hand should be visible at showdown"
+
+
+def test_public_state_hides_hands_when_win_by_fold():
+    """When all opponents fold, the winner's hole cards are NOT revealed."""
+    engine = _engine_2p()
+    # p1 folds immediately → p2 wins by fold
+    engine.player_action(engine.players[engine.current_player_idx].id, "fold")
+
+    assert engine.state == GameState.FINISHED
+    assert engine.winning_hand_rank == "Opponents Folded"
+
+    state = engine.get_public_game_state("p1")
+    p2_data = next(p for p in state["players"] if p["id"] == "p2")
+    # p2 won by fold; their cards must remain hidden from p1's perspective
+    assert all(c is None for c in p2_data["hand"]), "winner's cards should stay hidden when win by fold"
