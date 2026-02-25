@@ -362,10 +362,18 @@ class PokerEngine:
             "winning_hand": getattr(self, "winning_hand_rank", "")
         }
 
+        # Reveal hands at a real showdown: multiple players went to showdown (not fold-out)
+        is_actual_showdown = (
+            self.state in (GameState.SHOWDOWN, GameState.FINISHED)
+            and getattr(self, 'winning_hand_rank', '') not in ('', 'Opponents Folded')
+            and bool(getattr(self, 'winners', []))
+        )
+
         for p in self.players:
             p_data = p.to_dict()
-            # Mask hand if not observer and not showdown
-            if p.id != observer_id and self.state != GameState.SHOWDOWN:
+            # Mask hand if not the observer, unless this is a real showdown and the player
+            # stayed in (didn't fold) — folded players' cards are never revealed.
+            if p.id != observer_id and not (is_actual_showdown and p.is_active):
                 p_data["hand"] = [None] * len(p.hand)
             state["players"].append(p_data)
             
