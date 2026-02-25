@@ -41,6 +41,7 @@ backend/
 - Python: 使用 `logging` 模块，禁止 `print()`，所有函数必须有类型注解
 - 组件: 每个组件单文件，props 必须有 TypeScript interface
 - 环境变量: 敏感信息（API Key）必须通过 `.env` 文件注入，禁止硬编码
+- **测试**: 每次对项目进行修改后，必须运行 integration test（`/Users/Max/vscode_projects/LLM_poker_project/backend/venv/bin/python -m pytest backend/tests/ -v`），确保改动后游戏仍能正常运行
 
 ## 视觉规范（最高优先级）
 - 视觉基准文件在 `design_reference/` 目录，任何 UI 实现必须对照这些文件
