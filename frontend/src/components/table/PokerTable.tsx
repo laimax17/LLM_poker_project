@@ -151,7 +151,14 @@ const PokerTable: React.FC<PokerTableProps> = ({ gameState }) => {
 
           {/* Human hole cards (bottom center) */}
           {humanPlayer && (
-            <HoleCards cards={humanPlayer.hand} />
+            <HoleCards
+              cards={humanPlayer.hand}
+              isHumanTurn={
+                current_player_idx === 0 &&
+                state !== 'SHOWDOWN' &&
+                state !== 'FINISHED'
+              }
+            />
           )}
 
           {/* Human player info box (bottom right) */}
@@ -171,27 +178,36 @@ const PokerTable: React.FC<PokerTableProps> = ({ gameState }) => {
           )}
 
           {/* Winner announcement */}
-          {(state === 'SHOWDOWN' || state === 'FINISHED') && gameState.winners.length > 0 && (
-            <div style={{
-              position: 'absolute',
-              top: '30%',
-              left: '50%',
-              transform: 'translateX(-50%)',
-              background: 'rgba(0,0,0,0.85)',
-              border: '3px solid var(--gold)',
-              padding: '12px 20px',
-              textAlign: 'center',
-              clipPath: 'var(--clip-md)',
-              zIndex: 10,
-            }}>
-              <div style={{ fontSize: 7, color: 'var(--gold)', letterSpacing: 2, marginBottom: 6, fontFamily: 'var(--font-label)' }}>
-                ◈ SHOWDOWN ◈
+          {(state === 'SHOWDOWN' || state === 'FINISHED') && gameState.winners.length > 0 && (() => {
+            const winnerNames = gameState.winners
+              .map(id => players.find(p => p.id === id)?.name ?? id)
+              .join(' & ');
+            return (
+              <div style={{
+                position: 'absolute',
+                top: '30%',
+                left: '50%',
+                transform: 'translateX(-50%)',
+                background: 'rgba(0,0,0,0.88)',
+                border: '3px solid var(--gold)',
+                padding: '12px 24px',
+                textAlign: 'center',
+                clipPath: 'var(--clip-md)',
+                zIndex: 10,
+                whiteSpace: 'nowrap',
+              }}>
+                <div style={{ fontSize: 5, color: 'var(--gold-d)', letterSpacing: 3, marginBottom: 8, fontFamily: 'var(--font-label)' }}>
+                  ◈ SHOWDOWN ◈
+                </div>
+                <div style={{ fontSize: 9, color: 'var(--gold)', letterSpacing: 1, marginBottom: 6, fontFamily: 'var(--font-ui)' }}>
+                  {winnerNames}
+                </div>
+                <div style={{ fontSize: 6, color: 'var(--gold-l)', fontFamily: 'var(--font-label)', letterSpacing: 1 }}>
+                  {gameState.winning_hand}
+                </div>
               </div>
-              <div style={{ fontSize: 6, color: 'var(--gold-l)', fontFamily: 'var(--font-label)' }}>
-                {gameState.winning_hand}
-              </div>
-            </div>
-          )}
+            );
+          })()}
         </div>
       </div>
     </div>

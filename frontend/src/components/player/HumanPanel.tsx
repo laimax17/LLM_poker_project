@@ -23,9 +23,11 @@ function derivePositionLabel(playerIdx: number, dealerIdx: number, totalPlayers:
 }
 
 function isInPosition(playerIdx: number, dealerIdx: number, totalPlayers: number): boolean {
-  // In position = closer to the button relative to opponents
+  // BTN (pos=0) acts last postflop — most in position.
+  // HJ (pos=totalPlayers-2) and CO (pos=totalPlayers-1) also act late.
+  // SB (pos=1), BB (pos=2), UTG (pos=3) act early — out of position.
   const pos = (playerIdx - dealerIdx + totalPlayers) % totalPlayers;
-  return pos >= Math.floor(totalPlayers / 2);
+  return pos === 0 || pos >= totalPlayers - 2;
 }
 
 const HumanPanel: React.FC<HumanPanelProps> = ({
@@ -45,6 +47,8 @@ const HumanPanel: React.FC<HumanPanelProps> = ({
       padding: '12px 16px',
       minWidth: 150,
       clipPath: 'var(--clip-md)',
+      opacity: player.is_active ? 1 : 0.3,
+      transition: 'opacity 0.3s ease',
     }}>
       {/* YOU tag */}
       <div style={{

@@ -1,6 +1,8 @@
 import React from 'react';
-import type { Player } from '../../types';
+import type { Player, Card as CardType } from '../../types';
 import Card from '../card/Card';
+import BotSpeechBubble from './BotSpeechBubble';
+import { useGameStore } from '../../store/useGameStore';
 
 interface PlayerBoxProps {
   player: Player;
@@ -25,6 +27,8 @@ const PlayerBox: React.FC<PlayerBoxProps> = ({
 }) => {
   const isFolded = !player.is_active;
   const status = getStatusText(player, isCurrentTurn);
+  // Subscribe directly to this bot's current thought (avoids prop drilling)
+  const thought = useGameStore(s => s.botThoughts[player.id]);
 
   const boxStyle: React.CSSProperties = {
     background: 'rgba(10, 9, 0, 0.88)',
@@ -128,14 +132,14 @@ const PlayerBox: React.FC<PlayerBoxProps> = ({
               <Card
                 size="sm"
                 variant="face-up"
-                rank={(player.hand[0] as { rank: number; suit: string }).rank}
-                suit={(player.hand[0] as { rank: number; suit: string }).suit}
+                rank={(player.hand[0] as CardType).rank}
+                suit={(player.hand[0] as CardType).suit}
               />
               <Card
                 size="sm"
                 variant="face-up"
-                rank={(player.hand[1] as { rank: number; suit: string }).rank}
-                suit={(player.hand[1] as { rank: number; suit: string }).suit}
+                rank={(player.hand[1] as CardType).rank}
+                suit={(player.hand[1] as CardType).suit}
               />
             </>
           ) : player.is_active ? (
@@ -145,6 +149,11 @@ const PlayerBox: React.FC<PlayerBoxProps> = ({
             </>
           ) : null}
         </div>
+
+        {/* Speech bubble — floats outside this box via absolute positioning */}
+        {thought && (
+          <BotSpeechBubble text={thought.chat} side={chipBubbleSide} />
+        )}
       </div>
 
       {/* Chip bubble */}

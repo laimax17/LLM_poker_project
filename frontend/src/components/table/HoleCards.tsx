@@ -4,9 +4,10 @@ import Card from '../card/Card';
 
 interface HoleCardsProps {
   cards: (CardType | null)[];
+  isHumanTurn: boolean; // Fix 7: show red glow only when it's the human's turn to act
 }
 
-const HoleCards: React.FC<HoleCardsProps> = ({ cards }) => {
+const HoleCards: React.FC<HoleCardsProps> = ({ cards, isHumanTurn }) => {
   return (
     <div style={{
       position: 'absolute',
@@ -40,7 +41,7 @@ const HoleCards: React.FC<HoleCardsProps> = ({ cards }) => {
               variant="face-up"
               rank={card.rank}
               suit={card.suit}
-              glow="red"
+              glow={isHumanTurn ? 'red' : 'none'}
             />
           ) : (
             <Card key={i} size="md" variant="face-down" />
