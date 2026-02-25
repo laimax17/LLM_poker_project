@@ -288,26 +288,33 @@ def test_raise_cap_enforced():
     engine = _engine_2p(chips=5000)
     assert engine.max_raises_per_street == 4
 
-    current_total = engine.current_bet  # 20 (BB)
-    raiser = engine.players[engine.current_player_idx]
+    # Alternate raises between SB and BB (each raise resets opponent's
+    # has_acted, so the street never advances until someone calls).
 
-    for _ in range(4):
-        current_total += engine.min_raise
-        engine.player_action(raiser.id, "raise", current_total)
-        # The other player calls so the raiser gets to go again
-        caller = engine.players[engine.current_player_idx]
-        engine.player_action(caller.id, "call")
-        # After call, raiser's has_acted was reset by... wait, call doesn't reset.
-        # Actually after 4 raises + calls it may advance to next street.
-        # Let's just run until raise_count == 4 within one street.
-        if engine.state != GameState.PREFLOP:
-            break
+    # Raise 1: SB raises to 40
+    p = engine.players[engine.current_player_idx]
+    engine.player_action(p.id, "raise", 40)
+    assert engine.raise_count == 1
 
-    # If we're still in pre-flop with raise_count at cap, test rejection
-    if engine.state == GameState.PREFLOP and engine.raise_count >= engine.max_raises_per_street:
-        p = engine.players[engine.current_player_idx]
-        with pytest.raises(ValueError, match="Raise cap"):
-            engine.player_action(p.id, "raise", engine.current_bet + engine.min_raise)
+    # Raise 2: BB re-raises to 60
+    p = engine.players[engine.current_player_idx]
+    engine.player_action(p.id, "raise", 60)
+    assert engine.raise_count == 2
+
+    # Raise 3: SB re-raises to 80
+    p = engine.players[engine.current_player_idx]
+    engine.player_action(p.id, "raise", 80)
+    assert engine.raise_count == 3
+
+    # Raise 4: BB re-raises to 100 (cap reached)
+    p = engine.players[engine.current_player_idx]
+    engine.player_action(p.id, "raise", 100)
+    assert engine.raise_count == 4
+
+    # Raise 5: SB tries to raise again -> must be rejected
+    p = engine.players[engine.current_player_idx]
+    with pytest.raises(ValueError, match="Raise cap"):
+        engine.player_action(p.id, "raise", 120)
 
 
 def test_raise_cap_simple():

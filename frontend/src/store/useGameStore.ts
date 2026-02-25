@@ -7,7 +7,7 @@ import type {
   LLMConfig,
 } from '../types';
 
-const BACKEND_URL = 'http://localhost:8000';
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL ?? 'http://localhost:8000';
 
 interface GameStore {
   // Connection
@@ -19,6 +19,12 @@ interface GameStore {
 
   // Bot thoughts (speech bubbles per bot)
   botThoughts: Record<string, BotThought>;
+
+  // Error toast
+  errorMessage: string | null;
+
+  // Hand counter (increments each time a new hand starts)
+  handCount: number;
 
   // AI Coach
   coachAdvice: AICoachAdvice | null;
@@ -43,6 +49,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
   isConnected: false,
   gameState: null,
   botThoughts: {},
+  errorMessage: null,
+  handCount: 0,
   coachAdvice: null,
   isRequestingAdvice: false,
   showCoach: false,
@@ -64,7 +72,13 @@ export const useGameStore = create<GameStore>((set, get) => ({
     });
 
     socket.on('game_state', (data: GameState) => {
-      set({ gameState: data });
+      // Fix 9: detect new hand start (FINISHED → PREFLOP transition)
+      const prev = get().gameState;
+      const isNewHand = prev?.state === 'FINISHED' && data.state === 'PREFLOP';
+      set(state => ({
+        gameState: data,
+        handCount: isNewHand ? state.handCount + 1 : state.handCount,
+      }));
     });
 
     socket.on('ai_thought', (data: BotThought) => {
@@ -74,6 +88,16 @@ export const useGameStore = create<GameStore>((set, get) => ({
           [data.player_id]: data,
         },
       }));
+      // Auto-clear speech bubble after 4 seconds.
+      // Guard ensures a newer thought from the same bot won't be cleared early.
+      setTimeout(() => {
+        set(state => {
+          if (state.botThoughts[data.player_id] !== data) return state;
+          const updated = { ...state.botThoughts };
+          delete updated[data.player_id];
+          return { botThoughts: updated };
+        });
+      }, 4000);
     });
 
     socket.on('ai_advice', (data: AICoachAdvice) => {
@@ -87,7 +111,9 @@ export const useGameStore = create<GameStore>((set, get) => ({
     });
 
     socket.on('error', (data: { message: string }) => {
-      console.error('Backend error:', data.message);
+      // Fix 4: surface error in UI toast, auto-dismiss after 3 s
+      set({ errorMessage: data.message });
+      setTimeout(() => set({ errorMessage: null }), 3000);
     });
 
     set({ socket });
