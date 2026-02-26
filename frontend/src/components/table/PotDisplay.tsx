@@ -10,7 +10,7 @@ const PotDisplay: React.FC<PotDisplayProps> = ({ pot, street }) => {
     <div style={{ textAlign: 'center' }}>
       {/* Street label */}
       <div style={{
-        fontSize: 5,
+        fontSize: 7,
         color: 'var(--gold-d)',
         letterSpacing: 3,
         marginBottom: 4,
@@ -20,7 +20,7 @@ const PotDisplay: React.FC<PotDisplayProps> = ({ pot, street }) => {
       </div>
       {/* Pot amount */}
       <div style={{
-        fontSize: 7,
+        fontSize: 10,
         color: 'var(--gold-l)',
         letterSpacing: 2,
         textShadow: '0 0 6px var(--gold)',

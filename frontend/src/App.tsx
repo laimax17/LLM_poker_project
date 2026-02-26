@@ -55,7 +55,7 @@ function App() {
         width: '100%',
         background: 'var(--surface)',
         borderBottom: '4px solid var(--gold)',
-        padding: '14px 28px',
+        padding: '10px 20px',
         display: 'flex',
         justifyContent: 'space-between',
         alignItems: 'center',
@@ -63,7 +63,7 @@ function App() {
       }}>
         <div style={{
           fontFamily: 'var(--font-ui)',
-          fontSize: 18,
+          fontSize: 20,
           color: 'var(--gold)',
           textShadow: '2px 2px 0 var(--gold-d)',
           letterSpacing: 3,
@@ -72,7 +72,7 @@ function App() {
         </div>
 
         <div style={{
-          fontSize: 6,
+          fontSize: 8,
           color: 'var(--gold)',
           display: 'flex',
           gap: 20,
@@ -115,7 +115,7 @@ function App() {
           }}>
             <div style={{
               fontFamily: 'var(--font-ui)',
-              fontSize: 28,
+              fontSize: 32,
               color: 'var(--gold)',
               textShadow: '0 0 20px rgba(200,160,64,0.5)',
               letterSpacing: 4,
@@ -124,7 +124,7 @@ function App() {
               CYBER HOLD'EM
             </div>
             <div style={{
-              fontSize: 7,
+              fontSize: 10,
               color: 'var(--gold-d)',
               letterSpacing: 2,
               fontFamily: 'var(--font-label)',
@@ -133,7 +133,7 @@ function App() {
             </div>
             <button
               className="abtn abtn-raise"
-              style={{ fontSize: 10, padding: '14px 28px', marginTop: 16 }}
+              style={{ fontSize: 13, padding: '16px 32px', marginTop: 16 }}
               onClick={() => startGame()}
             >
               ▶ START GAME
@@ -155,7 +155,7 @@ function App() {
 
             {/* Next hand button */}
             {isGameOver && (
-              <div style={{ padding: '8px 0 4px' }}>
+              <div style={{ padding: '10px 0 6px' }}>
                 <button
                   className="abtn abtn-raise"
                   onClick={startNextHand}

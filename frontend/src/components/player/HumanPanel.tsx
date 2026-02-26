@@ -44,8 +44,8 @@ const HumanPanel: React.FC<HumanPanelProps> = ({
       background: 'var(--surface)',
       border: '3px solid var(--gold-l)',
       boxShadow: '0 0 20px rgba(232,208,128,0.2), 3px 3px 0 #000',
-      padding: '12px 16px',
-      minWidth: 150,
+      padding: '14px 18px',
+      minWidth: 180,
       clipPath: 'var(--clip-md)',
       opacity: player.is_active ? 1 : 0.3,
       transition: 'opacity 0.3s ease',
@@ -53,10 +53,10 @@ const HumanPanel: React.FC<HumanPanelProps> = ({
       {/* YOU tag */}
       <div style={{
         display: 'inline-block',
-        fontSize: 5,
+        fontSize: 7,
         background: 'var(--gold)',
         color: '#000',
-        padding: '2px 5px',
+        padding: '2px 6px',
         marginBottom: 6,
         fontFamily: 'var(--font-label)',
       }}>
@@ -66,7 +66,7 @@ const HumanPanel: React.FC<HumanPanelProps> = ({
       {/* Player name */}
       <div style={{
         fontFamily: 'var(--font-ui)',
-        fontSize: 11,
+        fontSize: 14,
         color: 'var(--gold-l)',
         textShadow: '0 0 8px rgba(232,208,128,0.5)',
         marginBottom: 5,
@@ -77,7 +77,7 @@ const HumanPanel: React.FC<HumanPanelProps> = ({
 
       {/* Chips */}
       <div style={{
-        fontSize: 8,
+        fontSize: 11,
         color: 'var(--gold)',
         marginBottom: 4,
         fontFamily: 'var(--font-label)',
@@ -87,7 +87,7 @@ const HumanPanel: React.FC<HumanPanelProps> = ({
 
       {/* Position + status */}
       <div style={{
-        fontSize: 6,
+        fontSize: 8,
         color: ip ? '#66cc88' : 'var(--gold-d)',
         fontFamily: 'var(--font-label)',
         display: 'flex',
@@ -103,7 +103,7 @@ const HumanPanel: React.FC<HumanPanelProps> = ({
       {player.current_bet > 0 && (
         <div style={{
           marginTop: 4,
-          fontSize: 5,
+          fontSize: 7,
           color: '#ffcc00',
           fontFamily: 'var(--font-label)',
         }}>

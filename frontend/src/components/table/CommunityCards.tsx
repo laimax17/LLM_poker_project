@@ -8,7 +8,7 @@ interface CommunityCardsProps {
 
 const CommunityCards: React.FC<CommunityCardsProps> = ({ cards }) => {
   return (
-    <div style={{ display: 'flex', gap: 8 }}>
+    <div style={{ display: 'flex', gap: 10 }}>
       {Array.from({ length: 5 }, (_, i) => {
         const card = cards[i];
         if (card) {

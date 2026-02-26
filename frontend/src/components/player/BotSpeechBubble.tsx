@@ -19,14 +19,14 @@ const BotSpeechBubble: React.FC<BotSpeechBubbleProps> = ({ text, side }) => {
       ...(isRight
         ? { left: 'calc(100% + 8px)', top: 0 }
         : { right: 'calc(100% + 8px)', top: 0 }),
-      width: 160,
+      width: 200,
       background: 'rgba(8, 7, 0, 0.96)',
       border: '1px solid var(--gold-d)',
       boxShadow: '0 0 8px rgba(200,160,64,0.15)',
       clipPath: 'var(--clip-sm)',
-      padding: '6px 10px',
+      padding: '8px 12px',
       fontFamily: 'var(--font-ai)',
-      fontSize: 18,
+      fontSize: 20,
       color: '#c8b080',
       lineHeight: 1.3,
       zIndex: 5,

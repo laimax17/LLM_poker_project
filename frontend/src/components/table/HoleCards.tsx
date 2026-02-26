@@ -11,7 +11,7 @@ const HoleCards: React.FC<HoleCardsProps> = ({ cards, isHumanTurn }) => {
   return (
     <div style={{
       position: 'absolute',
-      bottom: 20,
+      bottom: 24,
       left: '50%',
       transform: 'translateX(-50%)',
       display: 'flex',
@@ -21,7 +21,7 @@ const HoleCards: React.FC<HoleCardsProps> = ({ cards, isHumanTurn }) => {
     }}>
       {/* YOUR HAND label */}
       <div style={{
-        fontSize: 5,
+        fontSize: 7,
         color: 'var(--gold-d)',
         letterSpacing: 2,
         animation: 'blink 1s steps(1) infinite',
@@ -32,7 +32,7 @@ const HoleCards: React.FC<HoleCardsProps> = ({ cards, isHumanTurn }) => {
       </div>
 
       {/* Two hole cards */}
-      <div style={{ display: 'flex', gap: 10 }}>
+      <div style={{ display: 'flex', gap: 12 }}>
         {cards.slice(0, 2).map((card, i) =>
           card ? (
             <Card
