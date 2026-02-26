@@ -17,17 +17,17 @@ const ENGINE_OPTIONS: { value: LLMEngine; label: string }[] = [
 
 const selectStyle: React.CSSProperties = {
   fontFamily: 'var(--font-label)',
-  fontSize: 5,
+  fontSize: 7,
   background: '#000',
   border: '2px solid var(--brown)',
   color: 'var(--gold)',
-  padding: '4px 6px',
+  padding: '5px 8px',
   cursor: 'pointer',
   outline: 'none',
 };
 
 const labelStyle: React.CSSProperties = {
-  fontSize: 5,
+  fontSize: 7,
   color: 'var(--gold-d)',
   letterSpacing: 1,
   fontFamily: 'var(--font-label)',
@@ -54,8 +54,8 @@ const LLMConfigBar: React.FC<LLMConfigBarProps> = ({ config, onConfigChange }) =
   return (
     <div style={{
       width: '100%',
-      maxWidth: 960,
-      padding: '0 16px 20px',
+      maxWidth: 1100,
+      padding: '0 8px 14px',
     }}>
       <div style={{
         background: 'var(--surface)',
@@ -114,7 +114,7 @@ const LLMConfigBar: React.FC<LLMConfigBarProps> = ({ config, onConfigChange }) =
             animation: isOnline ? 'status-dot-pulse 1.2s steps(1) infinite' : 'none',
           }} />
           <span style={{
-            fontSize: 5,
+            fontSize: 7,
             color: isOnline ? '#44cc66' : '#cc4444',
             fontFamily: 'var(--font-label)',
           }}>

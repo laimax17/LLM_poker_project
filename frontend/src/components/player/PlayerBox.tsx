@@ -33,8 +33,8 @@ const PlayerBox: React.FC<PlayerBoxProps> = ({
   const boxStyle: React.CSSProperties = {
     background: 'rgba(10, 9, 0, 0.88)',
     border: '2px solid var(--brown)',
-    padding: '8px 10px',
-    width: 150,
+    padding: '10px 12px',
+    width: 180,
     position: 'relative',
     clipPath: 'var(--clip-sm)',
     opacity: isFolded ? 0.3 : 1,
@@ -54,11 +54,11 @@ const PlayerBox: React.FC<PlayerBoxProps> = ({
   const bubbleEl = hasChipBubble ? (
     <div style={{
       fontFamily: 'var(--font-ui)',
-      fontSize: 5,
+      fontSize: 7,
       background: '#1a0e00',
       border: '1px solid var(--gold-d)',
       color: 'var(--gold)',
-      padding: '2px 6px',
+      padding: '3px 8px',
       alignSelf: 'center',
       flexShrink: 0,
       whiteSpace: 'nowrap',
@@ -80,12 +80,12 @@ const PlayerBox: React.FC<PlayerBoxProps> = ({
         {badge && (
           <div style={{
             position: 'absolute',
-            top: -8,
+            top: -10,
             right: 5,
             background: 'var(--gold)',
             color: '#000',
-            fontSize: 4,
-            padding: '2px 5px',
+            fontSize: 6,
+            padding: '2px 6px',
             fontFamily: 'var(--font-ui)',
             lineHeight: 1.4,
           }}>
@@ -96,7 +96,7 @@ const PlayerBox: React.FC<PlayerBoxProps> = ({
         {/* Bot name */}
         <div style={{
           fontFamily: 'var(--font-ui)',
-          fontSize: 7,
+          fontSize: 10,
           color: 'var(--gold)',
           marginBottom: 4,
           overflow: 'hidden',
@@ -108,7 +108,7 @@ const PlayerBox: React.FC<PlayerBoxProps> = ({
 
         {/* Chips */}
         <div style={{
-          fontSize: 5,
+          fontSize: 7,
           color: 'var(--gold-l)',
           marginBottom: 3,
           fontFamily: 'var(--font-label)',
@@ -118,7 +118,7 @@ const PlayerBox: React.FC<PlayerBoxProps> = ({
 
         {/* Status */}
         <div style={{
-          fontSize: 5,
+          fontSize: 7,
           color: status.color,
           fontFamily: 'var(--font-label)',
         }}>
@@ -126,7 +126,7 @@ const PlayerBox: React.FC<PlayerBoxProps> = ({
         </div>
 
         {/* Cards (face-down or face-up at showdown) */}
-        <div style={{ display: 'flex', gap: 3, marginTop: 5 }}>
+        <div style={{ display: 'flex', gap: 4, marginTop: 6 }}>
           {showCards ? (
             <>
               <Card
@@ -142,12 +142,12 @@ const PlayerBox: React.FC<PlayerBoxProps> = ({
                 suit={(player.hand[1] as CardType).suit}
               />
             </>
-          ) : player.is_active ? (
+          ) : (
             <>
               <Card size="sm" variant="face-down" />
               <Card size="sm" variant="face-down" />
             </>
-          ) : null}
+          )}
         </div>
 
         {/* Speech bubble — floats outside this box via absolute positioning */}

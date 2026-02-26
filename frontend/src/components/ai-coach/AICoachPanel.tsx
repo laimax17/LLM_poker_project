@@ -51,7 +51,7 @@ const AICoachPanel: React.FC<AICoachPanelProps> = ({ advice, isLoading, onClose 
         marginBottom: 12,
       }}>
         <div style={{
-          fontSize: 7,
+          fontSize: 10,
           color: 'var(--gold)',
           letterSpacing: 2,
           fontFamily: 'var(--font-label)',
@@ -65,8 +65,8 @@ const AICoachPanel: React.FC<AICoachPanelProps> = ({ advice, isLoading, onClose 
             background: 'none',
             border: '1px solid var(--gold-d)',
             color: 'var(--gold-d)',
-            fontSize: 6,
-            padding: '2px 6px',
+            fontSize: 8,
+            padding: '3px 8px',
             cursor: 'pointer',
             fontFamily: 'var(--font-label)',
           }}
@@ -79,7 +79,7 @@ const AICoachPanel: React.FC<AICoachPanelProps> = ({ advice, isLoading, onClose 
       {isLoading && (
         <div style={{
           fontFamily: 'var(--font-ai)',
-          fontSize: 22,
+          fontSize: 24,
           color: '#c8b080',
           lineHeight: 2.1,
           minHeight: 80,
@@ -98,7 +98,7 @@ const AICoachPanel: React.FC<AICoachPanelProps> = ({ advice, isLoading, onClose 
           {/* Recommendation */}
           <div style={{
             fontFamily: 'var(--font-ui)',
-            fontSize: 12,
+            fontSize: 15,
             color: REC_COLORS[advice.recommendation] ?? 'var(--gold)',
             textShadow: advice.recommendation === 'RAISE'
               ? '0 0 8px rgba(255,204,0,0.5)'
@@ -112,7 +112,7 @@ const AICoachPanel: React.FC<AICoachPanelProps> = ({ advice, isLoading, onClose 
           {/* Body text with inline cards */}
           <div style={{
             fontFamily: 'var(--font-ai)',
-            fontSize: 22,
+            fontSize: 24,
             color: '#c8b080',
             lineHeight: 2.1,
             maxHeight: 320,
@@ -145,7 +145,7 @@ const AICoachPanel: React.FC<AICoachPanelProps> = ({ advice, isLoading, onClose 
                   textAlign: 'center',
                 }}>
                   <div style={{
-                    fontSize: 5,
+                    fontSize: 7,
                     color: 'var(--gold-d)',
                     marginBottom: 5,
                     fontFamily: 'var(--font-label)',
@@ -154,7 +154,7 @@ const AICoachPanel: React.FC<AICoachPanelProps> = ({ advice, isLoading, onClose 
                   </div>
                   <div style={{
                     fontFamily: 'var(--font-ui)',
-                    fontSize: 10,
+                    fontSize: 13,
                     color: STAT_COLORS[stat.quality] ?? 'var(--gold)',
                   }}>
                     {stat.value}
@@ -170,7 +170,7 @@ const AICoachPanel: React.FC<AICoachPanelProps> = ({ advice, isLoading, onClose 
       {!isLoading && !advice && (
         <div style={{
           fontFamily: 'var(--font-ai)',
-          fontSize: 20,
+          fontSize: 22,
           color: 'var(--gold-d)',
           textAlign: 'center',
           padding: '20px 0',

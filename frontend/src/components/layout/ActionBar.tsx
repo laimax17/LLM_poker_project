@@ -44,12 +44,12 @@ const ActionBar: React.FC<ActionBarProps> = ({
   return (
     <div style={{
       width: '100%',
-      maxWidth: 960,
+      maxWidth: 1100,
       display: 'flex',
-      gap: 8,
+      gap: 10,
       justifyContent: 'center',
       flexWrap: 'wrap',
-      padding: '16px 16px 10px',
+      padding: '12px 8px 8px',
     }}>
       {/* FOLD */}
       <button
@@ -98,11 +98,11 @@ const ActionBar: React.FC<ActionBarProps> = ({
           />
           {/* Fix 8: min~max range hint */}
           <div style={{
-            fontSize: 5,
+            fontSize: 7,
             color: 'var(--gold-d)',
             fontFamily: 'var(--font-label)',
             textAlign: 'center',
-            width: 80,
+            width: 110,
             alignSelf: 'center',
           }}>
             {minRaise}~{maxRaise}

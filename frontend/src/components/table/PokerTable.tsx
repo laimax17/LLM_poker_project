@@ -48,10 +48,10 @@ const PokerTable: React.FC<PokerTableProps> = ({ gameState }) => {
   return (
     <div style={{
       width: '100%',
-      maxWidth: 960,
-      padding: '20px 16px',
+      maxWidth: 1100,
+      padding: '12px 8px',
       display: 'grid',
-      gridTemplateColumns: '160px 1fr 160px',
+      gridTemplateColumns: '190px 1fr 190px',
       gridTemplateRows: 'auto',
     }}>
       {/* Felt wrap — spans all 3 columns */}
@@ -63,7 +63,7 @@ const PokerTable: React.FC<PokerTableProps> = ({ gameState }) => {
         {/* The green felt */}
         <div style={{
           width: '100%',
-          minHeight: 480,
+          minHeight: 560,
           background: 'radial-gradient(ellipse 80% 70% at 50% 42%, var(--felt-c) 0%, #122012 55%, var(--felt-e) 100%)',
           border: '5px solid var(--gold)',
           boxShadow: '0 0 0 2px var(--gold-d), inset 0 0 60px rgba(0,0,0,0.45), 0 0 40px rgba(200,160,64,0.06)',
@@ -90,11 +90,11 @@ const PokerTable: React.FC<PokerTableProps> = ({ gameState }) => {
           {/* Left bots (3) */}
           <div style={{
             position: 'absolute',
-            left: 16,
-            top: 24,
+            left: 10,
+            top: 20,
             display: 'flex',
             flexDirection: 'column',
-            gap: 10,
+            gap: 12,
           }}>
             {leftBots.map((bot, i) => {
               const playerIdx = i + 1; // bot 0→idx1, bot 1→idx2, bot 2→idx3
@@ -113,11 +113,11 @@ const PokerTable: React.FC<PokerTableProps> = ({ gameState }) => {
           {/* Right bots (2) */}
           <div style={{
             position: 'absolute',
-            right: 16,
-            top: 24,
+            right: 10,
+            top: 20,
             display: 'flex',
             flexDirection: 'column',
-            gap: 10,
+            gap: 12,
             alignItems: 'flex-end',
           }}>
             {rightBots.map((bot, i) => {
@@ -139,11 +139,11 @@ const PokerTable: React.FC<PokerTableProps> = ({ gameState }) => {
             position: 'absolute',
             top: '50%',
             left: '50%',
-            transform: 'translate(-50%, -58%)',
+            transform: 'translate(-50%, -55%)',
             display: 'flex',
             flexDirection: 'column',
             alignItems: 'center',
-            gap: 10,
+            gap: 12,
           }}>
             <PotDisplay pot={pot} street={state} />
             <CommunityCards cards={community_cards} />
@@ -165,8 +165,8 @@ const PokerTable: React.FC<PokerTableProps> = ({ gameState }) => {
           {humanPlayer && (
             <div style={{
               position: 'absolute',
-              bottom: 16,
-              right: 16,
+              bottom: 20,
+              right: 10,
             }}>
               <HumanPanel
                 player={humanPlayer}
@@ -190,19 +190,19 @@ const PokerTable: React.FC<PokerTableProps> = ({ gameState }) => {
                 transform: 'translateX(-50%)',
                 background: 'rgba(0,0,0,0.88)',
                 border: '3px solid var(--gold)',
-                padding: '12px 24px',
+                padding: '14px 28px',
                 textAlign: 'center',
                 clipPath: 'var(--clip-md)',
                 zIndex: 10,
                 whiteSpace: 'nowrap',
               }}>
-                <div style={{ fontSize: 5, color: 'var(--gold-d)', letterSpacing: 3, marginBottom: 8, fontFamily: 'var(--font-label)' }}>
+                <div style={{ fontSize: 7, color: 'var(--gold-d)', letterSpacing: 3, marginBottom: 8, fontFamily: 'var(--font-label)' }}>
                   ◈ SHOWDOWN ◈
                 </div>
-                <div style={{ fontSize: 9, color: 'var(--gold)', letterSpacing: 1, marginBottom: 6, fontFamily: 'var(--font-ui)' }}>
+                <div style={{ fontSize: 12, color: 'var(--gold)', letterSpacing: 1, marginBottom: 6, fontFamily: 'var(--font-ui)' }}>
                   {winnerNames}
                 </div>
-                <div style={{ fontSize: 6, color: 'var(--gold-l)', fontFamily: 'var(--font-label)', letterSpacing: 1 }}>
+                <div style={{ fontSize: 8, color: 'var(--gold-l)', fontFamily: 'var(--font-label)', letterSpacing: 1 }}>
                   {gameState.winning_hand}
                 </div>
               </div>

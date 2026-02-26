@@ -27,8 +27,17 @@ interface SizeSpec {
 }
 
 const SIZES: Record<CardSize, SizeSpec> = {
-  // Dimensions from design_reference/layout_v3.html
+  // LG/SM from design_reference/card_v3.html; MD uses old LG dims for larger human hole cards
   lg: {
+    width: 74, height: 104,
+    clipPx: 6,
+    shadow: '4px 4px 0 #000',
+    rankFontSize: 24,
+    suitFontSize: 48,
+    tlTop: 6, tlLeft: 7,
+    borderWidth: 3,
+  },
+  md: {
     width: 62, height: 88,
     clipPx: 5,
     shadow: '3px 3px 0 #000',
@@ -37,22 +46,13 @@ const SIZES: Record<CardSize, SizeSpec> = {
     tlTop: 5, tlLeft: 6,
     borderWidth: 3,
   },
-  md: {
-    width: 58, height: 82,
-    clipPx: 5,
-    shadow: '3px 3px 0 #000',
-    rankFontSize: 18,
-    suitFontSize: 36,
-    tlTop: 5, tlLeft: 6,
-    borderWidth: 3,
-  },
   sm: {
-    width: 30, height: 42,
-    clipPx: 3,
-    shadow: '1px 1px 0 #000',
-    rankFontSize: 10,
-    suitFontSize: 16,
-    tlTop: 3, tlLeft: 4,
+    width: 38, height: 54,
+    clipPx: 4,
+    shadow: '2px 2px 0 #000',
+    rankFontSize: 13,
+    suitFontSize: 22,
+    tlTop: 4, tlLeft: 5,
     borderWidth: 2,
   },
   xs: {
@@ -132,7 +132,7 @@ const Card: React.FC<CardProps> = ({
           display: 'flex', alignItems: 'center', justifyContent: 'center',
         }}>
           <span style={{
-            fontSize: size === 'lg' ? 22 : size === 'md' ? 22 : 12,
+            fontSize: size === 'lg' ? 28 : size === 'md' ? 22 : 14,
             color: '#2a4a2a',
             fontFamily: 'Georgia, serif',
             fontWeight: 900,
