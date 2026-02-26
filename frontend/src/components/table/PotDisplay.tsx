@@ -18,7 +18,7 @@ const PotDisplay: React.FC<PotDisplayProps> = ({ pot, street }) => {
       }}>
         {street}
       </div>
-      {/* Pot amount */}
+      {/* Pot amount — key changes force animation replay when pot grows */}
       <div style={{
         fontSize: 10,
         color: 'var(--gold-l)',
@@ -27,7 +27,14 @@ const PotDisplay: React.FC<PotDisplayProps> = ({ pot, street }) => {
         fontFamily: 'var(--font-label)',
         whiteSpace: 'nowrap',
       }}>
-        ◈ POT : ${pot.toLocaleString()} ◈
+        ◈ POT :{' '}
+        <span
+          key={pot}
+          style={{ display: 'inline-block', animation: 'numUpdate 0.4s ease-out' }}
+        >
+          ${pot.toLocaleString()}
+        </span>
+        {' '}◈
       </div>
     </div>
   );

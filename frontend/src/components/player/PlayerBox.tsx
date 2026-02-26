@@ -64,7 +64,12 @@ const PlayerBox: React.FC<PlayerBoxProps> = ({
       flexShrink: 0,
       whiteSpace: 'nowrap',
     }}>
-      ${player.current_bet}
+      <span
+        key={player.current_bet}
+        style={{ display: 'inline-block', animation: 'numUpdate 0.35s ease-out' }}
+      >
+        ${player.current_bet}
+      </span>
     </div>
   ) : null;
 
@@ -107,14 +112,19 @@ const PlayerBox: React.FC<PlayerBoxProps> = ({
           {player.name}
         </div>
 
-        {/* Chips */}
+        {/* Chips — key replays numUpdate animation when chips change */}
         <div style={{
           fontSize: 7,
           color: 'var(--gold-l)',
           marginBottom: 3,
           fontFamily: 'var(--font-label)',
         }}>
-          ${player.chips.toLocaleString()}
+          <span
+            key={player.chips}
+            style={{ display: 'inline-block', animation: 'numUpdate 0.35s ease-out' }}
+          >
+            ${player.chips.toLocaleString()}
+          </span>
         </div>
 
         {/* Status */}
