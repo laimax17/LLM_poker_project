@@ -3,15 +3,20 @@ import React from 'react';
 interface BotSpeechBubbleProps {
   text: string;
   side: 'right' | 'left';
+  fading?: boolean;
 }
 
 /**
  * Floating AI speech bubble anchored to PlayerBox's main card (position:relative).
  * side="right" → bubble extends rightward (for left-column bots)
  * side="left"  → bubble extends leftward  (for right-column bots)
+ * fading=true  → plays fadeOutSlide exit animation before DOM removal
  */
-const BotSpeechBubble: React.FC<BotSpeechBubbleProps> = ({ text, side }) => {
+const BotSpeechBubble: React.FC<BotSpeechBubbleProps> = ({ text, side, fading }) => {
   const isRight = side === 'right';
+  const animation = fading
+    ? 'fadeOutSlide 0.5s ease-in forwards'
+    : `${isRight ? 'fadeInSlide' : 'fadeInSlideLeft'} 0.2s ease-out`;
 
   return (
     <div style={{
@@ -31,7 +36,7 @@ const BotSpeechBubble: React.FC<BotSpeechBubbleProps> = ({ text, side }) => {
       lineHeight: 1.3,
       zIndex: 5,
       pointerEvents: 'none',
-      animation: `${isRight ? 'fadeInSlide' : 'fadeInSlideLeft'} 0.2s ease-out`,
+      animation,
       overflow: 'hidden',
       wordBreak: 'break-word',
     }}>

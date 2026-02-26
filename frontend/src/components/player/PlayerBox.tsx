@@ -39,6 +39,7 @@ const PlayerBox: React.FC<PlayerBoxProps> = ({
     clipPath: 'var(--clip-sm)',
     opacity: isFolded ? 0.3 : 1,
     flexShrink: 0,
+    transition: 'border-color 0.2s ease, box-shadow 0.2s ease',
   };
 
   const activeBoxStyle: React.CSSProperties = isCurrentTurn && player.is_active ? {
@@ -152,7 +153,7 @@ const PlayerBox: React.FC<PlayerBoxProps> = ({
 
         {/* Speech bubble — floats outside this box via absolute positioning */}
         {thought && (
-          <BotSpeechBubble text={thought.chat} side={chipBubbleSide} />
+          <BotSpeechBubble text={thought.chat} side={chipBubbleSide} fading={thought.fading} />
         )}
       </div>
 

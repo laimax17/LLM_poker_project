@@ -88,11 +88,24 @@ export const useGameStore = create<GameStore>((set, get) => ({
           [data.player_id]: data,
         },
       }));
-      // Auto-clear speech bubble after 4 seconds.
-      // Guard ensures a newer thought from the same bot won't be cleared early.
+      // Two-step auto-clear: fade at 3.5 s, remove at 4 s.
+      // Guard compares `chat` string so a newer thought is never cleared early.
       setTimeout(() => {
         set(state => {
-          if (state.botThoughts[data.player_id] !== data) return state;
+          const existing = state.botThoughts[data.player_id];
+          if (!existing || existing.chat !== data.chat) return state;
+          return {
+            botThoughts: {
+              ...state.botThoughts,
+              [data.player_id]: { ...existing, fading: true },
+            },
+          };
+        });
+      }, 3500);
+      setTimeout(() => {
+        set(state => {
+          const existing = state.botThoughts[data.player_id];
+          if (!existing || existing.chat !== data.chat) return state;
           const updated = { ...state.botThoughts };
           delete updated[data.player_id];
           return { botThoughts: updated };
