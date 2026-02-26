@@ -1,5 +1,6 @@
-import React from 'react';
+import React, { useState } from 'react';
 import type { LLMConfig, LLMEngine } from '../../types';
+import { setSoundEnabled } from '../../utils/sound';
 
 interface LLMConfigBarProps {
   config: LLMConfig;
@@ -36,6 +37,13 @@ const labelStyle: React.CSSProperties = {
 const LLMConfigBar: React.FC<LLMConfigBarProps> = ({ config, onConfigChange }) => {
   const showModelSelect = config.engine === 'ollama';
   const isOnline = config.status === 'online';
+  const [soundOn, setSoundOn] = useState(true);
+
+  function toggleSound() {
+    const next = !soundOn;
+    setSoundOn(next);
+    setSoundEnabled(next);
+  }
 
   function handleEngineChange(e: React.ChangeEvent<HTMLSelectElement>) {
     const engine = e.target.value as LLMEngine;
@@ -103,8 +111,24 @@ const LLMConfigBar: React.FC<LLMConfigBarProps> = ({ config, onConfigChange }) =
           </span>
         )}
 
-        {/* Status dot + text (right-aligned) */}
-        <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 6 }}>
+        {/* SFX toggle */}
+        <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 10 }}>
+          <button
+            onClick={toggleSound}
+            style={{
+              ...labelStyle,
+              cursor: 'pointer',
+              background: 'none',
+              border: 'none',
+              color: soundOn ? 'var(--gold)' : 'var(--gold-d)',
+              padding: 0,
+            }}
+          >
+            {soundOn ? '♪ SFX' : '✕ SFX'}
+          </button>
+
+        {/* Status dot + text */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
           <div style={{
             display: 'inline-block',
             width: 6,
@@ -120,6 +144,7 @@ const LLMConfigBar: React.FC<LLMConfigBarProps> = ({ config, onConfigChange }) =
           }}>
             {config.status === 'loading' ? 'CONNECTING...' : isOnline ? 'ONLINE' : 'OFFLINE'}
           </span>
+        </div>
         </div>
       </div>
     </div>

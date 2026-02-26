@@ -6,6 +6,7 @@ interface HumanPanelProps {
   dealerIdx: number;
   playerIdx: number;
   totalPlayers: number;
+  isHumanTurn?: boolean;
 }
 
 function derivePositionLabel(playerIdx: number, dealerIdx: number, totalPlayers: number): string {
@@ -35,6 +36,7 @@ const HumanPanel: React.FC<HumanPanelProps> = ({
   dealerIdx,
   playerIdx,
   totalPlayers,
+  isHumanTurn,
 }) => {
   const posLabel = derivePositionLabel(playerIdx, dealerIdx, totalPlayers);
   const ip = isInPosition(playerIdx, dealerIdx, totalPlayers);
@@ -50,6 +52,21 @@ const HumanPanel: React.FC<HumanPanelProps> = ({
       opacity: player.is_active ? 1 : 0.3,
       transition: 'opacity 0.3s ease',
     }}>
+      {/* YOUR TURN indicator — blinks when it's the human's action */}
+      {isHumanTurn && (
+        <div style={{
+          fontSize: 7,
+          color: 'var(--gold)',
+          fontFamily: 'var(--font-label)',
+          letterSpacing: 2,
+          animation: 'blink 0.6s steps(1) infinite',
+          marginBottom: 5,
+          textAlign: 'center',
+        }}>
+          ◈ YOUR TURN
+        </div>
+      )}
+
       {/* YOU tag */}
       <div style={{
         display: 'inline-block',
@@ -75,14 +92,19 @@ const HumanPanel: React.FC<HumanPanelProps> = ({
         {player.name}
       </div>
 
-      {/* Chips */}
+      {/* Chips — key replays numUpdate animation when chips change */}
       <div style={{
         fontSize: 11,
         color: 'var(--gold)',
         marginBottom: 4,
         fontFamily: 'var(--font-label)',
       }}>
-        ${player.chips.toLocaleString()}
+        <span
+          key={player.chips}
+          style={{ display: 'inline-block', animation: 'numUpdate 0.35s ease-out' }}
+        >
+          ${player.chips.toLocaleString()}
+        </span>
       </div>
 
       {/* Position + status */}

@@ -173,6 +173,11 @@ const PokerTable: React.FC<PokerTableProps> = ({ gameState }) => {
                 dealerIdx={effectiveDealerIdx}
                 playerIdx={0}
                 totalPlayers={totalPlayers}
+                isHumanTurn={
+                  current_player_idx === 0 &&
+                  state !== 'SHOWDOWN' &&
+                  state !== 'FINISHED'
+                }
               />
             </div>
           )}

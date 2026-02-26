@@ -19,7 +19,7 @@ const ToastNotification: React.FC<ToastNotificationProps> = ({ message }) => {
       border: '2px solid var(--red)',
       color: '#ff8888',
       fontFamily: 'var(--font-label)',
-      fontSize: 6,
+      fontSize: 10,
       padding: '10px 20px',
       clipPath: 'var(--clip-xs)',
       animation: 'fadeInSlide 0.2s ease-out',

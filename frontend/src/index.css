@@ -106,6 +106,23 @@
   to   { opacity: 1; transform: translateX(0); }
 }
 
+/* Bot speech bubble exit — slides out upward */
+@keyframes fadeOutSlide {
+  0%   { opacity: 1; transform: translateY(0); }
+  100% { opacity: 0; transform: translateY(-4px); }
+}
+
+/* Chip/pot number update flash — briefly scales up in yellow */
+@keyframes numUpdate {
+  0%   { color: #ffff88; transform: scale(1.25); }
+  100% { color: inherit; transform: scale(1); }
+}
+
+/* Hide native number input spinners (Part 1) */
+input[type=number]::-webkit-inner-spin-button,
+input[type=number]::-webkit-outer-spin-button { display: none; }
+input[type=number] { appearance: textfield; }
+
 /* === Scrollbar === */
 ::-webkit-scrollbar { width: 8px; }
 ::-webkit-scrollbar-track { background: var(--bg); }

@@ -39,6 +39,7 @@ const PlayerBox: React.FC<PlayerBoxProps> = ({
     clipPath: 'var(--clip-sm)',
     opacity: isFolded ? 0.3 : 1,
     flexShrink: 0,
+    transition: 'border-color 0.2s ease, box-shadow 0.2s ease',
   };
 
   const activeBoxStyle: React.CSSProperties = isCurrentTurn && player.is_active ? {
@@ -63,7 +64,12 @@ const PlayerBox: React.FC<PlayerBoxProps> = ({
       flexShrink: 0,
       whiteSpace: 'nowrap',
     }}>
-      ${player.current_bet}
+      <span
+        key={player.current_bet}
+        style={{ display: 'inline-block', animation: 'numUpdate 0.35s ease-out' }}
+      >
+        ${player.current_bet}
+      </span>
     </div>
   ) : null;
 
@@ -106,14 +112,19 @@ const PlayerBox: React.FC<PlayerBoxProps> = ({
           {player.name}
         </div>
 
-        {/* Chips */}
+        {/* Chips — key replays numUpdate animation when chips change */}
         <div style={{
           fontSize: 7,
           color: 'var(--gold-l)',
           marginBottom: 3,
           fontFamily: 'var(--font-label)',
         }}>
-          ${player.chips.toLocaleString()}
+          <span
+            key={player.chips}
+            style={{ display: 'inline-block', animation: 'numUpdate 0.35s ease-out' }}
+          >
+            ${player.chips.toLocaleString()}
+          </span>
         </div>
 
         {/* Status */}
@@ -152,7 +163,7 @@ const PlayerBox: React.FC<PlayerBoxProps> = ({
 
         {/* Speech bubble — floats outside this box via absolute positioning */}
         {thought && (
-          <BotSpeechBubble text={thought.chat} side={chipBubbleSide} />
+          <BotSpeechBubble text={thought.chat} side={chipBubbleSide} fading={thought.fading} />
         )}
       </div>
 

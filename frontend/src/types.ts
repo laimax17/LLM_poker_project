@@ -59,4 +59,5 @@ export interface BotThought {
   player_id: string;
   thought: string;
   chat: string;
+  fading?: boolean;
 }

@@ -151,6 +151,7 @@ function App() {
               onAskAI={requestAdvice}
               isRequestingAdvice={isRequestingAdvice}
               disabled={!isHumanTurn}
+              showCoach={showCoach}
             />
 
             {/* Next hand button */}

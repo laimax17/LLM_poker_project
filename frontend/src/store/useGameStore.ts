@@ -6,6 +6,13 @@ import type {
   BotThought,
   LLMConfig,
 } from '../types';
+import {
+  playCardDeal,
+  playChipClink,
+  playYourTurn,
+  playWin,
+  playFold,
+} from '../utils/sound';
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL ?? 'http://localhost:8000';
 
@@ -75,6 +82,37 @@ export const useGameStore = create<GameStore>((set, get) => ({
       // Fix 9: detect new hand start (FINISHED → PREFLOP transition)
       const prev = get().gameState;
       const isNewHand = prev?.state === 'FINISHED' && data.state === 'PREFLOP';
+
+      // ── Sound triggers (compare prev vs incoming state) ──────────────────
+      // New hand dealt
+      if (isNewHand) {
+        playCardDeal();
+      }
+      // Community cards revealed (flop/turn/river)
+      else if ((data.community_cards.length ?? 0) > (prev?.community_cards.length ?? 0)) {
+        playCardDeal();
+      }
+      // Pot grew — someone put chips in
+      if (!isNewHand && (data.pot ?? 0) > (prev?.pot ?? 0)) {
+        playChipClink();
+      }
+      // Human's turn just started
+      const humanId = data.players[0]?.id;
+      const wasHumanTurn = prev?.current_player_idx === 0 &&
+        prev?.state !== 'SHOWDOWN' && prev?.state !== 'FINISHED';
+      const isHumanTurnNow = data.current_player_idx === 0 &&
+        data.state !== 'SHOWDOWN' && data.state !== 'FINISHED';
+      if (!wasHumanTurn && isHumanTurnNow) {
+        playYourTurn();
+      }
+      // Human wins
+      const isShowdown = (data.state === 'SHOWDOWN' || data.state === 'FINISHED');
+      const wasShowdown = prev?.state === 'SHOWDOWN' || prev?.state === 'FINISHED';
+      if (isShowdown && !wasShowdown && humanId && data.winners.includes(humanId)) {
+        playWin();
+      }
+      // ─────────────────────────────────────────────────────────────────────
+
       set(state => ({
         gameState: data,
         handCount: isNewHand ? state.handCount + 1 : state.handCount,
@@ -88,11 +126,24 @@ export const useGameStore = create<GameStore>((set, get) => ({
           [data.player_id]: data,
         },
       }));
-      // Auto-clear speech bubble after 4 seconds.
-      // Guard ensures a newer thought from the same bot won't be cleared early.
+      // Two-step auto-clear: fade at 3.5 s, remove at 4 s.
+      // Guard compares `chat` string so a newer thought is never cleared early.
       setTimeout(() => {
         set(state => {
-          if (state.botThoughts[data.player_id] !== data) return state;
+          const existing = state.botThoughts[data.player_id];
+          if (!existing || existing.chat !== data.chat) return state;
+          return {
+            botThoughts: {
+              ...state.botThoughts,
+              [data.player_id]: { ...existing, fading: true },
+            },
+          };
+        });
+      }, 3500);
+      setTimeout(() => {
+        set(state => {
+          const existing = state.botThoughts[data.player_id];
+          if (!existing || existing.chat !== data.chat) return state;
           const updated = { ...state.botThoughts };
           delete updated[data.player_id];
           return { botThoughts: updated };
@@ -131,6 +182,9 @@ export const useGameStore = create<GameStore>((set, get) => ({
   sendAction: (action: string, amount = 0) => {
     const { socket } = get();
     if (socket) {
+      // Immediate audio feedback on human action
+      if (action === 'fold') playFold();
+      else playChipClink();
       socket.emit('player_action', { action, amount });
     }
   },
