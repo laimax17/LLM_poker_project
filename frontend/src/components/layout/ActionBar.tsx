@@ -56,8 +56,6 @@ const ActionBar: React.FC<ActionBarProps> = ({
     setRaiseAmount(String(clamp(base + delta, minRaise, maxRaise)));
   }, [currentAmount, minRaise, maxRaise]);
 
-  const cycleStep = () => setStepIdx(i => (i + 1) % STEPS.length);
-
   // ─── Raise submit ──────────────────────────────────────────────────────────
   function handleRaise() {
     const amt = parseInt(raiseAmount, 10);
@@ -106,14 +104,21 @@ const ActionBar: React.FC<ActionBarProps> = ({
   return (
     <div style={{
       width: '100%',
-      maxWidth: 1100,
       display: 'flex',
-      gap: 10,
-      justifyContent: 'center',
-      flexWrap: 'wrap',
       alignItems: 'flex-end',
       padding: '12px 8px 8px',
+      gap: 8,
     }}>
+
+      {/* ── Main action cluster (centered) ── */}
+      <div style={{
+        flex: 1,
+        display: 'flex',
+        gap: 10,
+        justifyContent: 'center',
+        flexWrap: 'wrap',
+        alignItems: 'flex-end',
+      }}>
 
       {/* ── FOLD ── */}
       <button
@@ -220,13 +225,30 @@ const ActionBar: React.FC<ActionBarProps> = ({
             ▲
           </button>
 
-          {/* Step cycle button */}
+          {/* Step control: ◀ STEP N ▶ */}
           <button
             className="abtn"
-            style={{ fontSize: 8, padding: '5px 9px', borderColor: 'var(--gold-d)', color: 'var(--gold-d)' }}
-            onClick={cycleStep}
+            style={{ fontSize: 11, padding: '4px 8px', lineHeight: 1, borderColor: 'var(--gold-d)', color: 'var(--gold-d)' }}
+            onClick={() => setStepIdx(i => (i - 1 + STEPS.length) % STEPS.length)}
           >
-            STEP {step}▸
+            ◀
+          </button>
+          <div style={{
+            fontSize: 8,
+            color: 'var(--gold-d)',
+            fontFamily: 'var(--font-label)',
+            alignSelf: 'center',
+            whiteSpace: 'nowrap',
+            letterSpacing: 1,
+          }}>
+            STEP {step}
+          </div>
+          <button
+            className="abtn"
+            style={{ fontSize: 11, padding: '4px 8px', lineHeight: 1, borderColor: 'var(--gold-d)', color: 'var(--gold-d)' }}
+            onClick={() => setStepIdx(i => (i + 1) % STEPS.length)}
+          >
+            ▶
           </button>
 
           {/* Fix 8: min~max range hint */}
@@ -250,15 +272,6 @@ const ActionBar: React.FC<ActionBarProps> = ({
             RAISE ▲<Hint k="R" />
           </button>
 
-          {/* Fix 6: ALL IN button */}
-          <button
-            className="abtn abtn-raise"
-            disabled={disabled}
-            onClick={() => onAction('allin', 0)}
-            style={{ borderColor: '#ffcc00', color: '#ffcc00' }}
-          >
-            ALL IN ▲ ${human?.chips}<Hint k="A" />
-          </button>
         </>
       )}
 
@@ -270,6 +283,29 @@ const ActionBar: React.FC<ActionBarProps> = ({
       >
         {isRequestingAdvice ? '◈ THINKING...' : '◈ ASK AI'}
       </button>
+
+      </div>{/* end main cluster */}
+
+      {/* ── ALL IN — danger zone, far right ── */}
+      {canRaise && (
+        <button
+          className="abtn"
+          disabled={disabled}
+          onClick={() => onAction('allin', 0)}
+          style={{
+            borderColor: '#aa2222',
+            color: '#ff4444',
+            fontSize: 7,
+            padding: '6px 10px',
+            flexShrink: 0,
+            alignSelf: 'flex-end',
+            lineHeight: 1.5,
+          }}
+        >
+          ALL IN<br />${human?.chips}<Hint k="A" />
+        </button>
+      )}
+
     </div>
   );
 };

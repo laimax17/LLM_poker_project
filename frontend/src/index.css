@@ -31,9 +31,9 @@
 
   /* === Typography === */
   --font-rank:  Georgia, 'Times New Roman', serif;
-  --font-ui:    'Silkscreen', monospace;
-  --font-ai:    'VT323', monospace;
-  --font-label: 'Press Start 2P', monospace;
+  --font-ui:    'Silkscreen', 'Noto Sans SC', monospace;
+  --font-ai:    'VT323', 'Noto Sans SC', monospace;
+  --font-label: 'Press Start 2P', 'Noto Sans SC', monospace;
 
   /* === Shadows === */
   --shadow-card-lg: 4px 4px 0 #000;
@@ -116,6 +116,20 @@
 @keyframes numUpdate {
   0%   { color: #ffff88; transform: scale(1.25); }
   100% { color: inherit; transform: scale(1); }
+}
+
+/* Hole card deal — swoops in from above with slight rotation & bounce */
+@keyframes cardDeal {
+  0%   { opacity: 0; transform: translateY(-22px) rotate(-4deg); }
+  65%  { opacity: 1; transform: translateY(2px) rotate(0.5deg); }
+  100% { opacity: 1; transform: translateY(0) rotate(0deg); }
+}
+
+/* Community card reveal — pops up from below with a quick scale bounce */
+@keyframes cardReveal {
+  0%   { opacity: 0; transform: scale(0.65) translateY(10px); }
+  70%  { opacity: 1; transform: scale(1.06) translateY(-1px); }
+  100% { opacity: 1; transform: scale(1) translateY(0); }
 }
 
 /* Hide native number input spinners (Part 1) */

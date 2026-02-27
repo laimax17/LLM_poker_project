@@ -43,7 +43,7 @@ function App() {
 
   return (
     <div style={{
-      minHeight: '100vh',
+      height: '100vh',
       display: 'flex',
       flexDirection: 'column',
       alignItems: 'center',
@@ -100,7 +100,8 @@ function App() {
         flexDirection: 'column',
         alignItems: 'center',
         width: '100%',
-        overflowY: 'auto',
+        overflow: 'hidden',
+        minHeight: 0,
       }}>
         {!gameState ? (
           /* Start Screen */
@@ -142,7 +143,9 @@ function App() {
         ) : (
           <>
             {/* Poker table */}
-            <PokerTable gameState={gameState} />
+            <div style={{ flex: 1, minHeight: 0, width: '100%', display: 'flex', flexDirection: 'column' }}>
+              <PokerTable gameState={gameState} handCount={handCount} />
+            </div>
 
             {/* Action bar */}
             <ActionBar

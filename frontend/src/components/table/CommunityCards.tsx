@@ -12,20 +12,23 @@ const CommunityCards: React.FC<CommunityCardsProps> = ({ cards }) => {
       {Array.from({ length: 5 }, (_, i) => {
         const card = cards[i];
         if (card) {
+          // Key changes from 'ph-i' → 'rank-suit' when card is revealed,
+          // forcing remount and replaying the cardReveal animation.
           return (
             <Card
-              key={i}
+              key={`${card.rank}-${card.suit}`}
               size="lg"
               variant="face-up"
               rank={card.rank}
               suit={card.suit}
               glow="gold"
+              style={{ animation: `cardReveal 0.32s ease-out ${i * 55}ms both` }}
             />
           );
         }
         return (
           <Card
-            key={i}
+            key={`ph-${i}`}
             size="lg"
             variant="placeholder"
           />

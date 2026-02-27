@@ -63,7 +63,6 @@ const LLMConfigBar: React.FC<LLMConfigBarProps> = ({ config, onConfigChange }) =
   return (
     <div style={{
       width: '100%',
-      maxWidth: 1100,
       padding: '0 8px 14px',
     }}>
       <div style={{
