@@ -11,6 +11,7 @@ const OLLAMA_MODELS = ['qwen2.5:7b', 'qwen2.5:14b', 'llama3.1:8b'];
 
 const ENGINE_OPTIONS: { value: LLMEngine; label: string }[] = [
   { value: 'rule-based', label: 'RULE-BASED' },
+  { value: 'gto',        label: 'GTO' },
   { value: 'ollama',     label: 'OLLAMA' },
   { value: 'qwen-plus',  label: 'QWEN-PLUS' },
   { value: 'qwen-max',   label: 'QWEN-MAX' },

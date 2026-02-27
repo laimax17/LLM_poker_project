@@ -34,7 +34,7 @@ export interface GameState {
   max_raises_per_street: number;
 }
 
-export type LLMEngine = 'rule-based' | 'ollama' | 'qwen-plus' | 'qwen-max';
+export type LLMEngine = 'rule-based' | 'gto' | 'ollama' | 'qwen-plus' | 'qwen-max';
 
 export interface LLMConfig {
   engine: LLMEngine;
