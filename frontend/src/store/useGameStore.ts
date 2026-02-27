@@ -9,9 +9,11 @@ import type {
 import {
   playCardDeal,
   playChipClink,
+  playChipStack,
   playYourTurn,
   playWin,
   playFold,
+  prewarmAudio,
 } from '../utils/sound';
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL ?? 'http://localhost:8000';
@@ -94,7 +96,9 @@ export const useGameStore = create<GameStore>((set, get) => ({
       }
       // Pot grew — someone put chips in
       if (!isNewHand && (data.pot ?? 0) > (prev?.pot ?? 0)) {
-        playChipClink();
+        const potDelta = (data.pot ?? 0) - (prev?.pot ?? 0);
+        if (potDelta >= 200) playChipStack(); // big bet/raise
+        else playChipClink();
       }
       // Human's turn just started
       const humanId = data.players[0]?.id;
@@ -171,6 +175,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
   },
 
   startGame: async () => {
+    prewarmAudio(); // initialize AudioContext during user gesture
     try {
       const res = await fetch(`${BACKEND_URL}/start-game`, { method: 'POST' });
       if (!res.ok) throw new Error('Failed to start game');
@@ -182,8 +187,10 @@ export const useGameStore = create<GameStore>((set, get) => ({
   sendAction: (action: string, amount = 0) => {
     const { socket } = get();
     if (socket) {
+      prewarmAudio(); // ensure context is running (idempotent)
       // Immediate audio feedback on human action
       if (action === 'fold') playFold();
+      else if (amount >= 200) playChipStack();
       else playChipClink();
       socket.emit('player_action', { action, amount });
     }
