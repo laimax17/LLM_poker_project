@@ -15,6 +15,7 @@ export interface Player {
   is_all_in: boolean;
   has_acted: boolean;
   is_dealer: boolean;
+  is_turn: boolean;
 }
 
 export type GameStreet = 'PREFLOP' | 'FLOP' | 'TURN' | 'RIVER' | 'SHOWDOWN' | 'FINISHED';

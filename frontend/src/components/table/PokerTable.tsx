@@ -8,6 +8,7 @@ import HoleCards from './HoleCards';
 
 interface PokerTableProps {
   gameState: GameState;
+  handCount: number;
 }
 
 /**
@@ -28,7 +29,7 @@ function getBadge(
   return undefined;
 }
 
-const PokerTable: React.FC<PokerTableProps> = ({ gameState }) => {
+const PokerTable: React.FC<PokerTableProps> = ({ gameState, handCount }) => {
   const { players, community_cards, pot, state, current_player_idx } = gameState;
 
   // players[0] = human; bots = players[1..5]
@@ -48,22 +49,22 @@ const PokerTable: React.FC<PokerTableProps> = ({ gameState }) => {
   return (
     <div style={{
       width: '100%',
-      maxWidth: 1100,
+      flex: 1,
       padding: '12px 8px',
-      display: 'grid',
-      gridTemplateColumns: '190px 1fr 190px',
-      gridTemplateRows: 'auto',
+      display: 'flex',
+      flexDirection: 'column',
     }}>
-      {/* Felt wrap — spans all 3 columns */}
+      {/* Felt wrap */}
       <div style={{
-        gridColumn: '1 / 4',
-        gridRow: '1 / 3',
+        flex: 1,
         position: 'relative',
+        display: 'flex',
+        flexDirection: 'column',
       }}>
         {/* The green felt */}
         <div style={{
           width: '100%',
-          minHeight: 560,
+          flex: 1,
           background: 'radial-gradient(ellipse 80% 70% at 50% 42%, var(--felt-c) 0%, #122012 55%, var(--felt-e) 100%)',
           border: '5px solid var(--gold)',
           boxShadow: '0 0 0 2px var(--gold-d), inset 0 0 60px rgba(0,0,0,0.45), 0 0 40px rgba(200,160,64,0.06)',
@@ -153,6 +154,7 @@ const PokerTable: React.FC<PokerTableProps> = ({ gameState }) => {
           {humanPlayer && (
             <HoleCards
               cards={humanPlayer.hand}
+              handCount={handCount}
               isHumanTurn={
                 current_player_idx === 0 &&
                 state !== 'SHOWDOWN' &&

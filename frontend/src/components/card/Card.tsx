@@ -12,6 +12,7 @@ interface CardProps {
   suit?: string;
   glow?: CardGlow;
   className?: string;
+  style?: React.CSSProperties;
 }
 
 interface SizeSpec {
@@ -93,6 +94,7 @@ const Card: React.FC<CardProps> = ({
   suit,
   glow = 'none',
   className = '',
+  style,
 }) => {
   const spec = SIZES[size];
   const isXS = size === 'xs';
@@ -121,6 +123,7 @@ const Card: React.FC<CardProps> = ({
     opacity: variant === 'placeholder' ? 0.2 : 1,
     overflow: 'hidden',
     ...xsInlineStyle,
+    ...style,
   };
 
   // === PLACEHOLDER ===

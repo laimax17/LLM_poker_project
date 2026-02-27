@@ -369,8 +369,11 @@ class PokerEngine:
             and bool(getattr(self, 'winners', []))
         )
 
-        for p in self.players:
+        for i, p in enumerate(self.players):
             p_data = p.to_dict()
+            # Augment positional badges so the frontend can render BTN/SB/BB correctly
+            p_data["is_dealer"] = (i == self.dealer_idx)
+            p_data["is_turn"] = (i == self.current_player_idx)
             # Mask hand if not the observer, unless this is a real showdown and the player
             # stayed in (didn't fold) — folded players' cards are never revealed.
             if p.id != observer_id and not (is_actual_showdown and p.is_active):

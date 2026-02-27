@@ -5,9 +5,10 @@ import Card from '../card/Card';
 interface HoleCardsProps {
   cards: (CardType | null)[];
   isHumanTurn: boolean; // Fix 7: show red glow only when it's the human's turn to act
+  handCount: number;    // Changes every new hand → triggers re-animation via key
 }
 
-const HoleCards: React.FC<HoleCardsProps> = ({ cards, isHumanTurn }) => {
+const HoleCards: React.FC<HoleCardsProps> = ({ cards, isHumanTurn, handCount }) => {
   return (
     <div style={{
       position: 'absolute',
@@ -36,15 +37,16 @@ const HoleCards: React.FC<HoleCardsProps> = ({ cards, isHumanTurn }) => {
         {cards.slice(0, 2).map((card, i) =>
           card ? (
             <Card
-              key={i}
+              key={`${handCount}-${i}`}
               size="md"
               variant="face-up"
               rank={card.rank}
               suit={card.suit}
               glow={isHumanTurn ? 'red' : 'none'}
+              style={{ animation: `cardDeal 0.4s ease-out ${i * 110}ms both` }}
             />
           ) : (
-            <Card key={i} size="md" variant="face-down" />
+            <Card key={`${handCount}-${i}`} size="md" variant="face-down" />
           )
         )}
       </div>
