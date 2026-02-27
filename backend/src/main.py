@@ -20,9 +20,14 @@ from .schemas import AIThought
 from .ai.rule_based import RuleBasedStrategy
 from .ai.llm_strategy import LLMBotStrategy
 from .ai.coach import AICoach
+from .ai.gto_strategy import GTOBotStrategy
+from .ai.gto_coach import GTOCoach
 from .ai.ollama import OllamaClient
 from .ai.qwen import QwenClient
 from .ai.strategy import BotStrategy
+
+# Seed PRNG with OS entropy for unpredictable shuffles every server restart
+random.seed(int.from_bytes(os.urandom(8), 'big'))
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -43,21 +48,32 @@ app.add_middleware(
 # ─── Global state ─────────────────────────────────────────────────────────────
 engine = PokerEngine()
 _strategy: BotStrategy = RuleBasedStrategy()
-_coach: Optional[AICoach] = None
+_coach: Optional[AICoach | GTOCoach] = None
 _llm_engine: str = os.environ.get('DEFAULT_AI_ENGINE', 'rule-based')
 _llm_model: str = ''
 
 
 # ─── Strategy factory ─────────────────────────────────────────────────────────
-def _build_strategy(engine_name: str, model: str) -> tuple[BotStrategy, Optional[AICoach]]:
-    """Return (strategy, coach) pair for the given engine name."""
+def _build_strategy(
+    engine_name: str, model: str
+) -> tuple[BotStrategy, AICoach | GTOCoach | None]:
+    """Return (strategy, coach) pair for the given engine name.
+
+    LLM engines: bots use LLMBotStrategy, coach uses AICoach (LLM-powered).
+    GTO engine:  bots use GTOBotStrategy, coach uses GTOCoach (no LLM needed).
+    Rule-based:  bots use RuleBasedStrategy, coach uses GTOCoach so the human
+                 always has access to GTO hints even without an LLM.
+    """
     if engine_name == 'ollama':
         client = OllamaClient(model=model or None)
         return LLMBotStrategy(client), AICoach(client)
     if engine_name in ('qwen-plus', 'qwen-max'):
         client = QwenClient(model=model or engine_name)
         return LLMBotStrategy(client), AICoach(client)
-    return RuleBasedStrategy(), None
+    if engine_name == 'gto':
+        return GTOBotStrategy(), GTOCoach()
+    # 'rule-based' (default): bots use heuristics, human still gets GTO hints
+    return RuleBasedStrategy(), GTOCoach()
 
 
 # Initialise from env
