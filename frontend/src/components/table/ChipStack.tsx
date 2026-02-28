@@ -3,8 +3,8 @@ import React from 'react';
 interface ChipStackProps {
   /** Chip amount to represent visually */
   amount: number;
-  /** 'sm' for player-bet bubbles, 'md' for pot display */
-  size?: 'sm' | 'md';
+  /** 'sm' for small contexts, 'md' for pot display, 'lg' for enlarged bot bet bubbles */
+  size?: 'sm' | 'md' | 'lg';
 }
 
 /**
@@ -41,9 +41,9 @@ const ChipStack: React.FC<ChipStackProps> = ({ amount, size = 'md' }) => {
   const count = getChipCount(amount);
   if (count === 0) return null;
 
-  const W = size === 'sm' ? 28 : 36;  // chip width px
-  const H = size === 'sm' ? 7  : 10;  // chip height px
-  const OVERLAP = size === 'sm' ? -3  : -4; // negative margin to stack chips
+  const W = size === 'lg' ? 52 : size === 'sm' ? 28 : 36;  // chip width px
+  const H = size === 'lg' ? 14 : size === 'sm' ? 7  : 10;  // chip height px
+  const OVERLAP = size === 'lg' ? -6 : size === 'sm' ? -3  : -4; // negative margin to stack chips
 
   return (
     <div

@@ -128,11 +128,11 @@ const PokerTable: React.FC<PokerTableProps> = ({ gameState, handCount }) => {
           {/* Left bots (3) */}
           <div style={{
             position: 'absolute',
-            left: 12,
-            top: 20,
+            left: 16,
+            top: 28,
             display: 'flex',
             flexDirection: 'column',
-            gap: 14,
+            gap: 20,
           }}>
             {leftBots.map((bot, i) => {
               const playerIdx = i + 1; // bot 0→idx1, bot 1→idx2, bot 2→idx3
@@ -151,11 +151,11 @@ const PokerTable: React.FC<PokerTableProps> = ({ gameState, handCount }) => {
           {/* Right bots (2) */}
           <div style={{
             position: 'absolute',
-            right: 12,
-            top: 20,
+            right: 16,
+            top: 28,
             display: 'flex',
             flexDirection: 'column',
-            gap: 14,
+            gap: 20,
             alignItems: 'flex-end',
           }}>
             {rightBots.map((bot, i) => {
