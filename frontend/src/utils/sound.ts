@@ -4,6 +4,7 @@
  *
  * Usage:
  *   import { playChipClink, playCardDeal, ... } from './sound';
+ *   prewarmAudio();      // call once on first user gesture
  *   setSoundEnabled(false); // mute all
  */
 
@@ -18,13 +19,39 @@ export function isSoundEnabled(): boolean {
   return _enabled;
 }
 
-/** Lazily initialise AudioContext (requires a prior user gesture in most browsers). */
+/**
+ * Pre-warm: call once inside a user-gesture handler (button click, etc.)
+ * so the AudioContext is created in 'running' state immediately.
+ * Subsequent calls are no-ops.
+ */
+export function prewarmAudio(): void {
+  if (_ctx) return;
+  try {
+    _ctx = new AudioContext();
+    // Created during a gesture → should already be 'running'.
+    // Resume defensively in case the browser suspends it.
+    if (_ctx.state === 'suspended') void _ctx.resume();
+  } catch { /* ignore — audio just won't play */ }
+}
+
+/**
+ * Return the AudioContext only when it's in 'running' state.
+ * If suspended, fires resume() for the next caller and returns null
+ * (sounds silently drop rather than scheduling on a paused timeline).
+ */
 function getCtx(): AudioContext | null {
   if (!_enabled) return null;
   try {
-    if (!_ctx) _ctx = new AudioContext();
-    // Resume if it was suspended (autoplay policy)
-    if (_ctx.state === 'suspended') _ctx.resume();
+    if (!_ctx) {
+      // Lazily create — might be suspended if no user gesture yet
+      _ctx = new AudioContext();
+    }
+    if (_ctx.state === 'suspended') {
+      // Fire-and-forget: future calls will find a running context
+      void _ctx.resume();
+      return null; // don't schedule on suspended timeline
+    }
+    if (_ctx.state === 'closed') return null;
     return _ctx;
   } catch {
     return null;
@@ -88,6 +115,16 @@ function noiseBurst(duration: number, gain = 0.12, delayMs = 0): void {
 export function playChipClink(): void {
   osc(1200, 'sine', 0.12, 0.25);
   osc(900,  'sine', 0.09, 0.15, 40);
+}
+
+/**
+ * Chip stack drop — heavier layered clink for large pot additions.
+ * Used when the pot grows significantly (big bet/raise).
+ */
+export function playChipStack(): void {
+  osc(900,  'sine', 0.15, 0.28);
+  osc(1200, 'sine', 0.10, 0.20, 35);
+  osc(650,  'triangle', 0.12, 0.18, 70);
 }
 
 /**

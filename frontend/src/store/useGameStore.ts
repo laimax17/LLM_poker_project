@@ -5,13 +5,16 @@ import type {
   AICoachAdvice,
   BotThought,
   LLMConfig,
+  PlayerAction,
 } from '../types';
 import {
   playCardDeal,
   playChipClink,
+  playChipStack,
   playYourTurn,
   playWin,
   playFold,
+  prewarmAudio,
 } from '../utils/sound';
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL ?? 'http://localhost:8000';
@@ -38,6 +41,9 @@ interface GameStore {
   isRequestingAdvice: boolean;
   showCoach: boolean;
 
+  // Floating action announcement
+  currentAction: PlayerAction | null;
+
   // LLM Config
   llmConfig: LLMConfig;
 
@@ -58,6 +64,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
   botThoughts: {},
   errorMessage: null,
   handCount: 0,
+  currentAction: null,
   coachAdvice: null,
   isRequestingAdvice: false,
   showCoach: false,
@@ -94,7 +101,9 @@ export const useGameStore = create<GameStore>((set, get) => ({
       }
       // Pot grew — someone put chips in
       if (!isNewHand && (data.pot ?? 0) > (prev?.pot ?? 0)) {
-        playChipClink();
+        const potDelta = (data.pot ?? 0) - (prev?.pot ?? 0);
+        if (potDelta >= 200) playChipStack(); // big bet/raise
+        else playChipClink();
       }
       // Human's turn just started
       const humanId = data.players[0]?.id;
@@ -151,6 +160,18 @@ export const useGameStore = create<GameStore>((set, get) => ({
       }, 4000);
     });
 
+    socket.on('player_acted', (data: PlayerAction) => {
+      // Skip if human action was already set locally in sendAction()
+      if (data.player_id === 'human') return;
+      set({ currentAction: data });
+      setTimeout(() => {
+        set(state => {
+          if (state.currentAction === data) return { currentAction: null };
+          return state;
+        });
+      }, 1500);
+    });
+
     socket.on('ai_advice', (data: AICoachAdvice) => {
       set({ coachAdvice: data, isRequestingAdvice: false, showCoach: true });
     });
@@ -171,6 +192,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
   },
 
   startGame: async () => {
+    prewarmAudio(); // initialize AudioContext during user gesture
     try {
       const res = await fetch(`${BACKEND_URL}/start-game`, { method: 'POST' });
       if (!res.ok) throw new Error('Failed to start game');
@@ -182,9 +204,27 @@ export const useGameStore = create<GameStore>((set, get) => ({
   sendAction: (action: string, amount = 0) => {
     const { socket } = get();
     if (socket) {
+      prewarmAudio(); // ensure context is running (idempotent)
       // Immediate audio feedback on human action
       if (action === 'fold') playFold();
+      else if (amount >= 200) playChipStack();
       else playChipClink();
+
+      // Immediate local action announcement for human
+      const humanAction: PlayerAction = {
+        player_id: 'human',
+        player_name: 'PLAYER',
+        action: action as PlayerAction['action'],
+        amount,
+      };
+      set({ currentAction: humanAction });
+      setTimeout(() => {
+        set(state => {
+          if (state.currentAction === humanAction) return { currentAction: null };
+          return state;
+        });
+      }, 1500);
+
       socket.emit('player_action', { action, amount });
     }
   },

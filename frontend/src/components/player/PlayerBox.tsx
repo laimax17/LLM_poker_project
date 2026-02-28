@@ -2,6 +2,7 @@ import React from 'react';
 import type { Player, Card as CardType } from '../../types';
 import Card from '../card/Card';
 import BotSpeechBubble from './BotSpeechBubble';
+import ChipStack from '../table/ChipStack';
 import { useGameStore } from '../../store/useGameStore';
 
 interface PlayerBoxProps {
@@ -33,8 +34,8 @@ const PlayerBox: React.FC<PlayerBoxProps> = ({
   const boxStyle: React.CSSProperties = {
     background: 'rgba(10, 9, 0, 0.88)',
     border: '2px solid var(--brown)',
-    padding: '10px 12px',
-    width: 180,
+    padding: '12px 16px',
+    width: 220,
     position: 'relative',
     clipPath: 'var(--clip-sm)',
     opacity: isFolded ? 0.3 : 1,
@@ -54,22 +55,32 @@ const PlayerBox: React.FC<PlayerBoxProps> = ({
 
   const bubbleEl = hasChipBubble ? (
     <div style={{
-      fontFamily: 'var(--font-ui)',
-      fontSize: 7,
-      background: '#1a0e00',
-      border: '1px solid var(--gold-d)',
-      color: 'var(--gold)',
-      padding: '3px 8px',
+      display: 'flex',
+      flexDirection: 'column',
+      alignItems: 'center',
+      gap: 3,
       alignSelf: 'center',
       flexShrink: 0,
-      whiteSpace: 'nowrap',
     }}>
-      <span
-        key={player.current_bet}
-        style={{ display: 'inline-block', animation: 'numUpdate 0.35s ease-out' }}
-      >
-        ${player.current_bet}
-      </span>
+      {/* Chip pile — key forces remount+animation when bet changes */}
+      <ChipStack key={player.current_bet} amount={player.current_bet} size="md" />
+      {/* Amount label below the stack */}
+      <div style={{
+        fontFamily: 'var(--font-ui)',
+        fontSize: 8,
+        color: 'var(--gold)',
+        background: '#1a0e00',
+        border: '1px solid var(--gold-d)',
+        padding: '2px 6px',
+        whiteSpace: 'nowrap',
+      }}>
+        <span
+          key={player.current_bet}
+          style={{ display: 'inline-block', animation: 'numUpdate 0.35s ease-out' }}
+        >
+          ${player.current_bet}
+        </span>
+      </div>
     </div>
   ) : null;
 
@@ -90,7 +101,7 @@ const PlayerBox: React.FC<PlayerBoxProps> = ({
             right: 5,
             background: 'var(--gold)',
             color: '#000',
-            fontSize: 6,
+            fontSize: 8,
             padding: '2px 6px',
             fontFamily: 'var(--font-ui)',
             lineHeight: 1.4,
@@ -102,7 +113,7 @@ const PlayerBox: React.FC<PlayerBoxProps> = ({
         {/* Bot name */}
         <div style={{
           fontFamily: 'var(--font-ui)',
-          fontSize: 10,
+          fontSize: 13,
           color: 'var(--gold)',
           marginBottom: 4,
           overflow: 'hidden',
@@ -114,7 +125,7 @@ const PlayerBox: React.FC<PlayerBoxProps> = ({
 
         {/* Chips — key replays numUpdate animation when chips change */}
         <div style={{
-          fontSize: 7,
+          fontSize: 9,
           color: 'var(--gold-l)',
           marginBottom: 3,
           fontFamily: 'var(--font-label)',
@@ -129,7 +140,7 @@ const PlayerBox: React.FC<PlayerBoxProps> = ({
 
         {/* Status */}
         <div style={{
-          fontSize: 7,
+          fontSize: 9,
           color: status.color,
           fontFamily: 'var(--font-label)',
         }}>
@@ -137,7 +148,7 @@ const PlayerBox: React.FC<PlayerBoxProps> = ({
         </div>
 
         {/* Cards (face-down or face-up at showdown) */}
-        <div style={{ display: 'flex', gap: 4, marginTop: 6 }}>
+        <div style={{ display: 'flex', gap: 5, marginTop: 6 }}>
           {showCards ? (
             <>
               <Card

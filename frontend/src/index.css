@@ -118,18 +118,53 @@
   100% { color: inherit; transform: scale(1); }
 }
 
-/* Hole card deal — swoops in from above with slight rotation & bounce */
+/* Hole card deal — flies from dealer (top-center) with scale bounce */
 @keyframes cardDeal {
-  0%   { opacity: 0; transform: translateY(-22px) rotate(-4deg); }
-  65%  { opacity: 1; transform: translateY(2px) rotate(0.5deg); }
-  100% { opacity: 1; transform: translateY(0) rotate(0deg); }
+  0%   { opacity: 0; transform: translateY(-60px) scale(0.6); }
+  60%  { opacity: 1; transform: translateY(3px) scale(1.02); }
+  100% { opacity: 1; transform: translateY(0) scale(1); }
 }
 
-/* Community card reveal — pops up from below with a quick scale bounce */
+/* Community card reveal — drops from above (dealer direction) with scale bounce */
 @keyframes cardReveal {
-  0%   { opacity: 0; transform: scale(0.65) translateY(10px); }
-  70%  { opacity: 1; transform: scale(1.06) translateY(-1px); }
+  0%   { opacity: 0; transform: scale(0.5) translateY(-30px); }
+  70%  { opacity: 1; transform: scale(1.06) translateY(1px); }
   100% { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+/* Chip drop into stack — falls from above with a slight squeeze */
+@keyframes chipIn {
+  0%   { opacity: 0; transform: scaleX(0.5) translateY(-14px); }
+  60%  { opacity: 1; transform: scaleX(1.08) translateY(1px); }
+  100% { opacity: 1; transform: scaleX(1)    translateY(0); }
+}
+
+/* Chip collect to pot — shrinks and slides toward center */
+@keyframes chipCollect {
+  0%   { opacity: 1; transform: scale(1);    }
+  100% { opacity: 0; transform: scale(0.4) translateY(-10px); }
+}
+
+/* Pot chip pile glow flash when new chips arrive */
+@keyframes chipGlow {
+  0%   { filter: brightness(1.0) drop-shadow(0 0 0px var(--gold)); }
+  40%  { filter: brightness(1.6) drop-shadow(0 0 8px var(--gold)); }
+  100% { filter: brightness(1.0) drop-shadow(0 0 0px var(--gold)); }
+}
+
+/* Floating action announcement — pops up, scales, floats upward, then fades */
+@keyframes actionAnnounce {
+  0%   { opacity: 0; transform: translate(-50%, 0) scale(0.7); }
+  15%  { opacity: 1; transform: translate(-50%, -10px) scale(1.08); }
+  30%  { opacity: 1; transform: translate(-50%, -14px) scale(1); }
+  75%  { opacity: 1; transform: translate(-50%, -18px); }
+  100% { opacity: 0; transform: translate(-50%, -30px) scale(0.95); }
+}
+
+/* Dealer badge glow pulse during dealing */
+@keyframes dealerPulse {
+  0%, 100% { box-shadow: 0 0 8px rgba(200,160,64,0.3); }
+  50%      { box-shadow: 0 0 18px rgba(200,160,64,0.7); }
 }
 
 /* Hide native number input spinners (Part 1) */

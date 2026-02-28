@@ -45,8 +45,21 @@ app.add_middleware(
     allow_headers=['*'],
 )
 
+# ─── Bot personality assignments ──────────────────────────────────────────────
+# Each bot gets a unique personality and display name.
+BOT_PROFILES: list[dict[str, str]] = [
+    {'id': 'bot_1', 'name': 'NEON',    'personality': 'shark'},
+    {'id': 'bot_2', 'name': 'GRANITE', 'personality': 'rock'},
+    {'id': 'bot_3', 'name': 'BLAZE',   'personality': 'maniac'},
+    {'id': 'bot_4', 'name': 'GLACIER', 'personality': 'station'},
+    {'id': 'bot_5', 'name': 'CIPHER',  'personality': 'tag'},
+]
+
 # ─── Global state ─────────────────────────────────────────────────────────────
 engine = PokerEngine()
+# Per-bot strategy dict (for rule-based mode, each bot has its own personality)
+_bot_strategies: dict[str, BotStrategy] = {}
+# Fallback single strategy (used for GTO/LLM where all bots share one)
 _strategy: BotStrategy = RuleBasedStrategy()
 _coach: Optional[AICoach | GTOCoach] = None
 _llm_engine: str = os.environ.get('DEFAULT_AI_ENGINE', 'rule-based')
@@ -57,7 +70,7 @@ _llm_model: str = ''
 def _build_strategy(
     engine_name: str, model: str
 ) -> tuple[BotStrategy, AICoach | GTOCoach | None]:
-    """Return (strategy, coach) pair for the given engine name.
+    """Return (fallback_strategy, coach) pair for the given engine name.
 
     LLM engines: bots use LLMBotStrategy, coach uses AICoach (LLM-powered).
     GTO engine:  bots use GTOBotStrategy, coach uses GTOCoach (no LLM needed).
@@ -76,8 +89,30 @@ def _build_strategy(
     return RuleBasedStrategy(), GTOCoach()
 
 
+def _rebuild_bot_strategies(engine_name: str, model: str) -> None:
+    """Rebuild the per-bot strategy dict.
+
+    For rule-based: each bot gets its own RuleBasedStrategy with a unique personality.
+    For GTO/LLM: all bots share the same _strategy instance (no per-bot dict needed).
+    """
+    global _bot_strategies
+    if engine_name == 'rule-based':
+        _bot_strategies = {
+            prof['id']: RuleBasedStrategy(personality=prof['personality'])
+            for prof in BOT_PROFILES
+        }
+    else:
+        _bot_strategies = {}
+
+
 # Initialise from env
 _strategy, _coach = _build_strategy(_llm_engine, _llm_model)
+_rebuild_bot_strategies(_llm_engine, _llm_model)
+
+
+def _get_strategy(bot_id: str) -> BotStrategy:
+    """Return the strategy for a specific bot (per-bot if rule-based, shared otherwise)."""
+    return _bot_strategies.get(bot_id, _strategy)
 
 
 # ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -107,11 +142,12 @@ async def check_ai_turn() -> None:
         await asyncio.sleep(random.uniform(0.5, 1.2))
         state_for_bot = engine.get_public_game_state(current_p.id)
 
+        strategy = _get_strategy(current_p.id)
         try:
-            if isinstance(_strategy, LLMBotStrategy):
-                decision = await _strategy.decide_async(state_for_bot, current_p.id)
+            if isinstance(strategy, LLMBotStrategy):
+                decision = await strategy.decide_async(state_for_bot, current_p.id)
             else:
-                decision = _strategy.decide(state_for_bot, current_p.id)
+                decision = strategy.decide(state_for_bot, current_p.id)
         except Exception as exc:
             logger.error('Strategy.decide failed for %s: %s', current_p.id, exc)
             decision = AIThought(action='fold', amount=0, thought='error fallback', chat_message='...')
@@ -123,15 +159,25 @@ async def check_ai_turn() -> None:
                 'chat': decision.chat_message,
             })
 
+        actual_action = decision.action
+        actual_amount = decision.amount
         try:
             engine.player_action(current_p.id, decision.action, decision.amount)
         except Exception as exc:
             logger.error('engine.player_action error %s (action=%s): %s', current_p.id, decision.action, exc)
+            actual_action = 'fold'
+            actual_amount = 0
             try:
                 engine.player_action(current_p.id, 'fold', 0)
             except Exception:
                 pass
 
+        await sio.emit('player_acted', {
+            'player_id': current_p.id,
+            'player_name': current_p.name,
+            'action': actual_action,
+            'amount': actual_amount,
+        })
         await broadcast_state()
 
 
@@ -158,8 +204,8 @@ async def health() -> dict[str, Any]:
 async def start_game() -> dict[str, str]:
     engine.players = []
     engine.add_player('human', 'PLAYER', 5000)
-    for i in range(1, 6):
-        engine.add_player(f'bot_{i}', f'BOT-{i}', 5000)
+    for prof in BOT_PROFILES:
+        engine.add_player(prof['id'], prof['name'], 5000)
     engine.start_hand()
     await broadcast_state()
     await check_ai_turn()
@@ -182,6 +228,7 @@ async def set_ai_config(config: AIConfigRequest) -> dict[str, str]:
     _llm_engine = config.engine
     _llm_model = config.model
     _strategy, _coach = _build_strategy(config.engine, config.model)
+    _rebuild_bot_strategies(config.engine, config.model)
     logger.info('AI config updated via HTTP: engine=%s model=%s', config.engine, config.model)
     return {'status': 'ok', 'engine': _llm_engine, 'model': _llm_model}
 
@@ -198,6 +245,12 @@ async def player_action(sid: str, data: dict[str, Any]) -> None:
             await sio.emit('error', {'message': 'Not your turn!'}, to=sid)
             return
         engine.player_action('human', action, amount)
+        await sio.emit('player_acted', {
+            'player_id': 'human',
+            'player_name': 'PLAYER',
+            'action': action,
+            'amount': amount,
+        })
         await broadcast_state()
         await check_ai_turn()
     except Exception as exc:
@@ -228,6 +281,7 @@ async def request_advice(sid: str, data: dict[str, Any]) -> None:
         _llm_engine = req_engine
         _llm_model = req_model
         _strategy, _coach = _build_strategy(req_engine, req_model)
+        _rebuild_bot_strategies(req_engine, req_model)
 
     if _coach is None:
         await sio.emit('ai_advice', {
@@ -258,6 +312,7 @@ async def set_llm_config(sid: str, data: dict[str, Any]) -> None:
     _llm_engine = engine_name
     _llm_model = model
     _strategy, _coach = _build_strategy(engine_name, model)
+    _rebuild_bot_strategies(engine_name, model)
     logger.info('LLM config via socket: engine=%s model=%s', engine_name, model)
 
     if isinstance(_strategy, LLMBotStrategy):
