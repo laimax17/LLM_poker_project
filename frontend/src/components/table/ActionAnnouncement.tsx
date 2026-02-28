@@ -12,7 +12,6 @@ function formatAction(action: PlayerAction): string {
     case 'call':  return 'CALL';
     case 'raise': return `RAISE $${action.amount}`;
     case 'allin': return 'ALL IN';
-    default:      return action.action.toUpperCase();
   }
 }
 
