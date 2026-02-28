@@ -157,17 +157,21 @@ function App() {
               showCoach={showCoach}
             />
 
-            {/* Next hand button */}
-            {isGameOver && (
-              <div style={{ padding: '10px 0 6px' }}>
-                <button
-                  className="abtn abtn-raise"
-                  onClick={startNextHand}
-                >
-                  ▶ NEXT HAND
-                </button>
-              </div>
-            )}
+            {/* Next hand button — always rendered, visibility toggled to prevent layout shift */}
+            <div style={{
+              padding: '10px 0 6px',
+              display: 'flex',
+              justifyContent: 'center',
+              visibility: isGameOver ? 'visible' : 'hidden',
+              flexShrink: 0,
+            }}>
+              <button
+                className="abtn abtn-raise"
+                onClick={startNextHand}
+              >
+                ▶ NEXT HAND
+              </button>
+            </div>
 
             {/* LLM config bar */}
             <LLMConfigBar

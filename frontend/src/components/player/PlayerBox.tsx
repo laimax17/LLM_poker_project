@@ -34,8 +34,8 @@ const PlayerBox: React.FC<PlayerBoxProps> = ({
   const boxStyle: React.CSSProperties = {
     background: 'rgba(10, 9, 0, 0.88)',
     border: '2px solid var(--brown)',
-    padding: '12px 16px',
-    width: 220,
+    padding: '20px 28px',
+    width: 400,
     position: 'relative',
     clipPath: 'var(--clip-sm)',
     opacity: isFolded ? 0.3 : 1,
@@ -58,20 +58,20 @@ const PlayerBox: React.FC<PlayerBoxProps> = ({
       display: 'flex',
       flexDirection: 'column',
       alignItems: 'center',
-      gap: 3,
+      gap: 5,
       alignSelf: 'center',
       flexShrink: 0,
     }}>
       {/* Chip pile — key forces remount+animation when bet changes */}
-      <ChipStack key={player.current_bet} amount={player.current_bet} size="md" />
+      <ChipStack key={player.current_bet} amount={player.current_bet} size="lg" />
       {/* Amount label below the stack */}
       <div style={{
         fontFamily: 'var(--font-ui)',
-        fontSize: 8,
+        fontSize: 14,
         color: 'var(--gold)',
         background: '#1a0e00',
         border: '1px solid var(--gold-d)',
-        padding: '2px 6px',
+        padding: '4px 10px',
         whiteSpace: 'nowrap',
       }}>
         <span
@@ -89,7 +89,7 @@ const PlayerBox: React.FC<PlayerBoxProps> = ({
       display: 'flex',
       flexDirection: chipBubbleSide === 'right' ? 'row' : 'row-reverse',
       alignItems: 'center',
-      gap: 6,
+      gap: 10,
     }}>
       {/* Main pbox */}
       <div style={{ ...boxStyle, ...activeBoxStyle }}>
@@ -97,12 +97,12 @@ const PlayerBox: React.FC<PlayerBoxProps> = ({
         {badge && (
           <div style={{
             position: 'absolute',
-            top: -10,
+            top: -14,
             right: 5,
             background: 'var(--gold)',
             color: '#000',
-            fontSize: 8,
-            padding: '2px 6px',
+            fontSize: 14,
+            padding: '4px 10px',
             fontFamily: 'var(--font-ui)',
             lineHeight: 1.4,
           }}>
@@ -113,9 +113,9 @@ const PlayerBox: React.FC<PlayerBoxProps> = ({
         {/* Bot name */}
         <div style={{
           fontFamily: 'var(--font-ui)',
-          fontSize: 13,
+          fontSize: 22,
           color: 'var(--gold)',
-          marginBottom: 4,
+          marginBottom: 6,
           overflow: 'hidden',
           textOverflow: 'ellipsis',
           whiteSpace: 'nowrap',
@@ -125,9 +125,9 @@ const PlayerBox: React.FC<PlayerBoxProps> = ({
 
         {/* Chips — key replays numUpdate animation when chips change */}
         <div style={{
-          fontSize: 9,
+          fontSize: 16,
           color: 'var(--gold-l)',
-          marginBottom: 3,
+          marginBottom: 5,
           fontFamily: 'var(--font-label)',
         }}>
           <span
@@ -140,7 +140,7 @@ const PlayerBox: React.FC<PlayerBoxProps> = ({
 
         {/* Status */}
         <div style={{
-          fontSize: 9,
+          fontSize: 16,
           color: status.color,
           fontFamily: 'var(--font-label)',
         }}>
@@ -148,17 +148,17 @@ const PlayerBox: React.FC<PlayerBoxProps> = ({
         </div>
 
         {/* Cards (face-down or face-up at showdown) */}
-        <div style={{ display: 'flex', gap: 5, marginTop: 6 }}>
+        <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
           {showCards ? (
             <>
               <Card
-                size="sm"
+                size="md"
                 variant="face-up"
                 rank={(player.hand[0] as CardType).rank}
                 suit={(player.hand[0] as CardType).suit}
               />
               <Card
-                size="sm"
+                size="md"
                 variant="face-up"
                 rank={(player.hand[1] as CardType).rank}
                 suit={(player.hand[1] as CardType).suit}
@@ -166,8 +166,8 @@ const PlayerBox: React.FC<PlayerBoxProps> = ({
             </>
           ) : (
             <>
-              <Card size="sm" variant="face-down" />
-              <Card size="sm" variant="face-down" />
+              <Card size="md" variant="face-down" />
+              <Card size="md" variant="face-down" />
             </>
           )}
         </div>
