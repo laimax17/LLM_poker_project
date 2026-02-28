@@ -5,6 +5,7 @@ import type {
   AICoachAdvice,
   BotThought,
   LLMConfig,
+  PlayerAction,
 } from '../types';
 import {
   playCardDeal,
@@ -40,6 +41,9 @@ interface GameStore {
   isRequestingAdvice: boolean;
   showCoach: boolean;
 
+  // Floating action announcement
+  currentAction: PlayerAction | null;
+
   // LLM Config
   llmConfig: LLMConfig;
 
@@ -60,6 +64,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
   botThoughts: {},
   errorMessage: null,
   handCount: 0,
+  currentAction: null,
   coachAdvice: null,
   isRequestingAdvice: false,
   showCoach: false,
@@ -155,6 +160,18 @@ export const useGameStore = create<GameStore>((set, get) => ({
       }, 4000);
     });
 
+    socket.on('player_acted', (data: PlayerAction) => {
+      // Skip if human action was already set locally in sendAction()
+      if (data.player_id === 'human') return;
+      set({ currentAction: data });
+      setTimeout(() => {
+        set(state => {
+          if (state.currentAction === data) return { currentAction: null };
+          return state;
+        });
+      }, 1500);
+    });
+
     socket.on('ai_advice', (data: AICoachAdvice) => {
       set({ coachAdvice: data, isRequestingAdvice: false, showCoach: true });
     });
@@ -192,6 +209,22 @@ export const useGameStore = create<GameStore>((set, get) => ({
       if (action === 'fold') playFold();
       else if (amount >= 200) playChipStack();
       else playChipClink();
+
+      // Immediate local action announcement for human
+      const humanAction: PlayerAction = {
+        player_id: 'human',
+        player_name: 'PLAYER',
+        action: action as PlayerAction['action'],
+        amount,
+      };
+      set({ currentAction: humanAction });
+      setTimeout(() => {
+        set(state => {
+          if (state.currentAction === humanAction) return { currentAction: null };
+          return state;
+        });
+      }, 1500);
+
       socket.emit('player_action', { action, amount });
     }
   },

@@ -159,15 +159,25 @@ async def check_ai_turn() -> None:
                 'chat': decision.chat_message,
             })
 
+        actual_action = decision.action
+        actual_amount = decision.amount
         try:
             engine.player_action(current_p.id, decision.action, decision.amount)
         except Exception as exc:
             logger.error('engine.player_action error %s (action=%s): %s', current_p.id, decision.action, exc)
+            actual_action = 'fold'
+            actual_amount = 0
             try:
                 engine.player_action(current_p.id, 'fold', 0)
             except Exception:
                 pass
 
+        await sio.emit('player_acted', {
+            'player_id': current_p.id,
+            'player_name': current_p.name,
+            'action': actual_action,
+            'amount': actual_amount,
+        })
         await broadcast_state()
 
 
@@ -235,6 +245,12 @@ async def player_action(sid: str, data: dict[str, Any]) -> None:
             await sio.emit('error', {'message': 'Not your turn!'}, to=sid)
             return
         engine.player_action('human', action, amount)
+        await sio.emit('player_acted', {
+            'player_id': 'human',
+            'player_name': 'PLAYER',
+            'action': action,
+            'amount': amount,
+        })
         await broadcast_state()
         await check_ai_turn()
     except Exception as exc:

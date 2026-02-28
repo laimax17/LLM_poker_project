@@ -5,6 +5,9 @@ import HumanPanel from '../player/HumanPanel';
 import PotDisplay from './PotDisplay';
 import CommunityCards from './CommunityCards';
 import HoleCards from './HoleCards';
+import DealerBadge from './DealerBadge';
+import ActionAnnouncement from './ActionAnnouncement';
+import { useGameStore } from '../../store/useGameStore';
 
 interface PokerTableProps {
   gameState: GameState;
@@ -45,6 +48,33 @@ const PokerTable: React.FC<PokerTableProps> = ({ gameState, handCount }) => {
   const leftBots = botPlayers.slice(0, 3);
   // Right column: bots at indices 4, 5 → botPlayers[3,4]
   const rightBots = botPlayers.slice(3, 5);
+
+  // Floating action announcement from store
+  const currentAction = useGameStore(s => s.currentAction);
+
+  // Track dealing/revealing state for DealerBadge
+  const [isDealing, setIsDealing] = React.useState(false);
+  const [isRevealing, setIsRevealing] = React.useState(false);
+  const prevCommunityCount = React.useRef(community_cards.length);
+
+  // Detect new hand start (dealing)
+  React.useEffect(() => {
+    if (handCount === 0) return; // skip initial mount
+    setIsDealing(true);
+    const t = setTimeout(() => setIsDealing(false), 900);
+    return () => clearTimeout(t);
+  }, [handCount]);
+
+  // Detect community card reveals
+  React.useEffect(() => {
+    if (community_cards.length > prevCommunityCount.current) {
+      setIsRevealing(true);
+      const t = setTimeout(() => setIsRevealing(false), 600);
+      prevCommunityCount.current = community_cards.length;
+      return () => clearTimeout(t);
+    }
+    prevCommunityCount.current = community_cards.length;
+  }, [community_cards.length]);
 
   return (
     <div style={{
@@ -87,6 +117,13 @@ const PokerTable: React.FC<PokerTableProps> = ({ gameState, handCount }) => {
             borderRight: '3px solid var(--gold)',
             pointerEvents: 'none',
           }} />
+
+          {/* Dealer badge (top center) */}
+          <DealerBadge
+            isDealing={isDealing}
+            isRevealing={isRevealing}
+            isShowdown={state === 'SHOWDOWN' || state === 'FINISHED'}
+          />
 
           {/* Left bots (3) */}
           <div style={{
@@ -182,6 +219,14 @@ const PokerTable: React.FC<PokerTableProps> = ({ gameState, handCount }) => {
                 }
               />
             </div>
+          )}
+
+          {/* Floating action announcement */}
+          {currentAction && (
+            <ActionAnnouncement
+              key={`${currentAction.player_id}-${currentAction.action}-${currentAction.amount}`}
+              action={currentAction}
+            />
           )}
 
           {/* Winner announcement */}

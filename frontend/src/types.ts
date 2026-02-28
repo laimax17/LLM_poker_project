@@ -62,3 +62,10 @@ export interface BotThought {
   chat: string;
   fading?: boolean;
 }
+
+export interface PlayerAction {
+  player_id: string;
+  player_name: string;
+  action: 'fold' | 'check' | 'call' | 'raise' | 'allin';
+  amount: number;
+}
