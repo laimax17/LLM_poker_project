@@ -1,5 +1,6 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useGameStore } from './store/useGameStore';
+import { useT } from './i18n/I18nContext';
 import PokerTable from './components/table/PokerTable';
 import ActionBar from './components/layout/ActionBar';
 import LLMConfigBar from './components/layout/LLMConfigBar';
@@ -7,6 +8,7 @@ import AICoachPanel from './components/ai-coach/AICoachPanel';
 import ToastNotification from './components/layout/ToastNotification';
 
 function App() {
+  const { t, locale, setLocale } = useT();
   const {
     connect,
     isConnected,
@@ -14,6 +16,7 @@ function App() {
     startGame,
     sendAction,
     startNextHand,
+    resetGame,
     requestAdvice,
     closeCoach,
     coachAdvice,
@@ -21,9 +24,13 @@ function App() {
     showCoach,
     llmConfig,
     setLLMConfig,
+    setLocale: setBackendLocale,
     errorMessage,
     handCount,
+    isGameOver: isPlayerEliminated,
   } = useGameStore();
+
+  const [showMenu, setShowMenu] = useState(false);
 
   useEffect(() => {
     connect();
@@ -32,14 +39,29 @@ function App() {
     };
   }, []);
 
+  // Sync locale to backend whenever it changes
+  useEffect(() => {
+    setBackendLocale(locale);
+  }, [locale, setBackendLocale]);
+
   const isHumanTurn =
     gameState !== null &&
     gameState.state !== 'SHOWDOWN' &&
     gameState.state !== 'FINISHED' &&
     gameState.current_player_idx === 0;
 
-  const isGameOver =
+  const isHandOver =
     gameState?.state === 'SHOWDOWN' || gameState?.state === 'FINISHED';
+
+  const handleLanguageChange = (newLocale: 'en' | 'zh') => {
+    setLocale(newLocale);
+  };
+
+  const handleNewGame = () => {
+    setShowMenu(false);
+    resetGame();
+    startGame();
+  };
 
   return (
     <div style={{
@@ -67,8 +89,30 @@ function App() {
           color: 'var(--gold)',
           textShadow: '2px 2px 0 var(--gold-d)',
           letterSpacing: 3,
+          display: 'flex',
+          alignItems: 'center',
+          gap: 16,
         }}>
-          CYBER <span style={{ color: 'var(--gold-l)' }}>HOLD'EM</span>
+          {t('app.title')}
+
+          {/* Menu button — visible during gameplay */}
+          {gameState && (
+            <button
+              onClick={() => setShowMenu(true)}
+              style={{
+                background: 'none',
+                border: '1px solid var(--gold-d)',
+                color: 'var(--gold-d)',
+                fontSize: 7,
+                padding: '4px 10px',
+                cursor: 'pointer',
+                fontFamily: 'var(--font-label)',
+                letterSpacing: 1,
+              }}
+            >
+              {t('app.menu')}
+            </button>
+          )}
         </div>
 
         <div style={{
@@ -80,14 +124,14 @@ function App() {
         }}>
           {gameState ? (
             <>
-              <span>BLIND <b style={{ color: 'var(--gold-l)' }}>$10/$20</b></span>
-              <span>STREET <b style={{ color: 'var(--gold-l)' }}>{gameState.state}</b></span>
-              <span>POT <b style={{ color: 'var(--gold-l)' }}>${gameState.pot}</b></span>
-              <span>HAND <b style={{ color: 'var(--gold-l)' }}>#{String(handCount).padStart(3, '0')}</b></span>
+              <span>{t('header.blind')} <b style={{ color: 'var(--gold-l)' }}>$10/$20</b></span>
+              <span>{t('header.street')} <b style={{ color: 'var(--gold-l)' }}>{gameState.state}</b></span>
+              <span>{t('header.pot')} <b style={{ color: 'var(--gold-l)' }}>${gameState.pot}</b></span>
+              <span>{t('header.hand')} <b style={{ color: 'var(--gold-l)' }}>#{String(handCount).padStart(3, '0')}</b></span>
             </>
           ) : (
             <span style={{ color: isConnected ? '#44cc66' : '#cc4444' }}>
-              {isConnected ? '● CONNECTED' : '● DISCONNECTED'}
+              {isConnected ? t('header.connected') : t('header.disconnected')}
             </span>
           )}
         </div>
@@ -122,7 +166,7 @@ function App() {
               letterSpacing: 4,
               textAlign: 'center',
             }}>
-              CYBER HOLD'EM
+              {t('app.title')}
             </div>
             <div style={{
               fontSize: 10,
@@ -130,14 +174,49 @@ function App() {
               letterSpacing: 2,
               fontFamily: 'var(--font-label)',
             }}>
-              1 HUMAN VS 5 AI BOTS
+              {t('app.subtitle')}
             </div>
+
+            {/* Language selector */}
+            <div style={{ display: 'flex', gap: 12, marginTop: 8 }}>
+              <button
+                onClick={() => handleLanguageChange('en')}
+                style={{
+                  background: locale === 'en' ? 'var(--gold)' : 'transparent',
+                  border: '2px solid var(--gold)',
+                  color: locale === 'en' ? '#000' : 'var(--gold)',
+                  fontSize: 9,
+                  padding: '8px 16px',
+                  cursor: 'pointer',
+                  fontFamily: 'var(--font-label)',
+                  letterSpacing: 1,
+                }}
+              >
+                ENGLISH
+              </button>
+              <button
+                onClick={() => handleLanguageChange('zh')}
+                style={{
+                  background: locale === 'zh' ? 'var(--gold)' : 'transparent',
+                  border: '2px solid var(--gold)',
+                  color: locale === 'zh' ? '#000' : 'var(--gold)',
+                  fontSize: 9,
+                  padding: '8px 16px',
+                  cursor: 'pointer',
+                  fontFamily: 'var(--font-label)',
+                  letterSpacing: 1,
+                }}
+              >
+                中文
+              </button>
+            </div>
+
             <button
               className="abtn abtn-raise"
               style={{ fontSize: 13, padding: '16px 32px', marginTop: 16 }}
               onClick={() => startGame()}
             >
-              ▶ START GAME
+              {t('app.start')}
             </button>
           </div>
         ) : (
@@ -162,14 +241,14 @@ function App() {
               padding: '10px 0 6px',
               display: 'flex',
               justifyContent: 'center',
-              visibility: isGameOver ? 'visible' : 'hidden',
+              visibility: isHandOver ? 'visible' : 'hidden',
               flexShrink: 0,
             }}>
               <button
                 className="abtn abtn-raise"
                 onClick={startNextHand}
               >
-                ▶ NEXT HAND
+                {t('app.nextHand')}
               </button>
             </div>
 
@@ -184,6 +263,136 @@ function App() {
 
       {/* ─── Error Toast ─── */}
       {errorMessage && <ToastNotification message={errorMessage} />}
+
+      {/* ─── Game Over Overlay ─── */}
+      {isPlayerEliminated && (
+        <div style={{
+          position: 'fixed',
+          inset: 0,
+          background: 'rgba(0,0,0,0.85)',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 2000,
+          gap: 20,
+        }}>
+          <div style={{
+            fontFamily: 'var(--font-ui)',
+            fontSize: 28,
+            color: '#ff4444',
+            letterSpacing: 4,
+            textShadow: '0 0 20px rgba(255,68,68,0.5)',
+          }}>
+            {t('gameover.title')}
+          </div>
+          <div style={{
+            fontFamily: 'var(--font-ai)',
+            fontSize: 22,
+            color: '#c8b080',
+            textAlign: 'center',
+          }}>
+            {t('gameover.eliminated')}
+          </div>
+          <button
+            className="abtn abtn-raise"
+            style={{ fontSize: 13, padding: '16px 32px', marginTop: 16 }}
+            onClick={handleNewGame}
+          >
+            {t('app.newGame')}
+          </button>
+        </div>
+      )}
+
+      {/* ─── Menu Overlay ─── */}
+      {showMenu && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0,0,0,0.75)',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 1500,
+            gap: 16,
+          }}
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setShowMenu(false);
+          }}
+        >
+          <div style={{
+            background: 'var(--surface)',
+            border: '4px solid var(--gold)',
+            padding: '28px 36px',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            gap: 16,
+            clipPath: 'var(--clip-md)',
+          }}>
+            <div style={{
+              fontFamily: 'var(--font-ui)',
+              fontSize: 14,
+              color: 'var(--gold)',
+              letterSpacing: 3,
+              marginBottom: 8,
+            }}>
+              {t('app.menu')}
+            </div>
+
+            {/* Language selector in menu */}
+            <div style={{ display: 'flex', gap: 12 }}>
+              <button
+                onClick={() => handleLanguageChange('en')}
+                style={{
+                  background: locale === 'en' ? 'var(--gold)' : 'transparent',
+                  border: '2px solid var(--gold)',
+                  color: locale === 'en' ? '#000' : 'var(--gold)',
+                  fontSize: 8,
+                  padding: '6px 14px',
+                  cursor: 'pointer',
+                  fontFamily: 'var(--font-label)',
+                  letterSpacing: 1,
+                }}
+              >
+                ENGLISH
+              </button>
+              <button
+                onClick={() => handleLanguageChange('zh')}
+                style={{
+                  background: locale === 'zh' ? 'var(--gold)' : 'transparent',
+                  border: '2px solid var(--gold)',
+                  color: locale === 'zh' ? '#000' : 'var(--gold)',
+                  fontSize: 8,
+                  padding: '6px 14px',
+                  cursor: 'pointer',
+                  fontFamily: 'var(--font-label)',
+                  letterSpacing: 1,
+                }}
+              >
+                中文
+              </button>
+            </div>
+
+            <button
+              className="abtn abtn-raise"
+              style={{ fontSize: 11, padding: '12px 28px' }}
+              onClick={handleNewGame}
+            >
+              {t('app.newGame')}
+            </button>
+            <button
+              className="abtn abtn-check"
+              style={{ fontSize: 11, padding: '12px 28px' }}
+              onClick={() => setShowMenu(false)}
+            >
+              {t('app.continue')}
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* ─── AI Coach Modal (always rendered at root level) ─── */}
       {showCoach && (

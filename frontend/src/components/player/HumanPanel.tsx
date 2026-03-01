@@ -1,5 +1,6 @@
 import React from 'react';
 import type { Player } from '../../types';
+import { useT } from '../../i18n/I18nContext';
 
 interface HumanPanelProps {
   player: Player;
@@ -38,6 +39,7 @@ const HumanPanel: React.FC<HumanPanelProps> = ({
   totalPlayers,
   isHumanTurn,
 }) => {
+  const { t } = useT();
   const posLabel = derivePositionLabel(playerIdx, dealerIdx, totalPlayers);
   const ip = isInPosition(playerIdx, dealerIdx, totalPlayers);
 
@@ -63,7 +65,7 @@ const HumanPanel: React.FC<HumanPanelProps> = ({
           marginBottom: 5,
           textAlign: 'center',
         }}>
-          ◈ YOUR TURN
+          ◈ {t('human.yourTurn')}
         </div>
       )}
 
@@ -77,7 +79,7 @@ const HumanPanel: React.FC<HumanPanelProps> = ({
         marginBottom: 6,
         fontFamily: 'var(--font-label)',
       }}>
-        YOU
+        {t('human.you')}
       </div>
 
       {/* Player name */}
@@ -118,7 +120,7 @@ const HumanPanel: React.FC<HumanPanelProps> = ({
       }}>
         <span style={{ color: ip ? '#66cc88' : '#cc6666' }}>●</span>
         {posLabel && <span>{posLabel}</span>}
-        <span>{ip ? 'IN POS' : 'OOP'}</span>
+        <span>{ip ? t('human.inPos') : t('human.oop')}</span>
       </div>
 
       {/* Current bet if any */}
@@ -129,7 +131,7 @@ const HumanPanel: React.FC<HumanPanelProps> = ({
           color: '#ffcc00',
           fontFamily: 'var(--font-label)',
         }}>
-          BET: ${player.current_bet}
+          {t('status.bet')}: ${player.current_bet}
         </div>
       )}
     </div>

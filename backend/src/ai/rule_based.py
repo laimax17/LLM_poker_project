@@ -26,11 +26,17 @@ class Personality:
     tightness: float    # 0.0 (loose) → 1.0 (very tight)
     bluff_freq: float   # probability of bluffing when hand is weak
 
-    # Per-personality chat lines
+    # Per-personality chat lines (English)
     chat_fold: list[str]
     chat_check: list[str]
     chat_call: list[str]
     chat_raise: list[str]
+
+    # Per-personality chat lines (Chinese)
+    chat_fold_zh: list[str]
+    chat_check_zh: list[str]
+    chat_call_zh: list[str]
+    chat_raise_zh: list[str]
 
 
 PERSONALITIES: dict[str, Personality] = {
@@ -41,6 +47,10 @@ PERSONALITIES: dict[str, Personality] = {
         chat_check=['Check.', 'I\'ll let it ride.'],
         chat_call=['I call.', 'Let\'s see the next card.', 'I\'m in.'],
         chat_raise=['Raise.', 'Time to build this pot.', 'Pay up.', 'Let\'s go.'],
+        chat_fold_zh=['弃牌…暂时。', '不值得。', '我等等。'],
+        chat_check_zh=['过牌。', '让子弹飞一会。'],
+        chat_call_zh=['跟注。', '看看下一张。', '我跟。'],
+        chat_raise_zh=['加注。', '该做大这个底池了。', '交钱吧。', '来吧。'],
     ),
     'rock': Personality(
         name='rock',
@@ -49,6 +59,10 @@ PERSONALITIES: dict[str, Personality] = {
         chat_check=['Check.', 'Checking.'],
         chat_call=['...call.', 'Fine, I call.', 'I\'ll see it.'],
         chat_raise=['Raise.', 'I have a hand.'],
+        chat_fold_zh=['弃牌。', '不是我的牌。', '过。'],
+        chat_check_zh=['过牌。', '过。'],
+        chat_call_zh=['…跟。', '好吧，跟注。', '看看。'],
+        chat_raise_zh=['加注。', '我有牌。'],
     ),
     'maniac': Personality(
         name='maniac',
@@ -58,6 +72,11 @@ PERSONALITIES: dict[str, Personality] = {
         chat_call=['CALL!', 'Let\'s go!', 'I\'m not scared.', 'Bring it!'],
         chat_raise=['ALL DAY!', 'RAISE!', 'You scared?', 'Let\'s gamble!',
                     'Come on!', 'Can you handle this?'],
+        chat_fold_zh=['切，算了。', '随便吧。', '下一把！'],
+        chat_check_zh=['过牌…无聊。', '过吧。'],
+        chat_call_zh=['跟！', '来吧！', '我不怕！', '放马过来！'],
+        chat_raise_zh=['全天候！', '加注！', '你怕了？', '来赌啊！',
+                       '来嘛！', '你接得住吗？'],
     ),
     'station': Personality(
         name='station',
@@ -67,6 +86,11 @@ PERSONALITIES: dict[str, Personality] = {
         chat_call=['Call.', 'I\'ll call.', 'Let me see.', 'I call, show me.',
                    'Calling.', 'I want to see your cards.'],
         chat_raise=['Raise.', 'Small raise.'],
+        chat_fold_zh=['好吧…弃牌。', '那就弃吧。'],
+        chat_check_zh=['过牌。', '我过。'],
+        chat_call_zh=['跟注。', '我跟。', '让我看看。', '跟了，亮牌。',
+                      '跟注。', '我想看你的牌。'],
+        chat_raise_zh=['加注。', '小加一下。'],
     ),
     'tag': Personality(
         name='tag',
@@ -75,20 +99,32 @@ PERSONALITIES: dict[str, Personality] = {
         chat_check=['Check.', 'Checking here.'],
         chat_call=['Call.', 'Good price.', 'Pot odds say call.'],
         chat_raise=['Raise.', 'Value bet.', 'I like my hand.', 'Raising.'],
+        chat_fold_zh=['弃牌。', '这次不了。', '我退了。'],
+        chat_check_zh=['过牌。', '过。'],
+        chat_call_zh=['跟注。', '价格不错。', '赔率合适，跟。'],
+        chat_raise_zh=['加注。', '价值下注。', '我喜欢我的牌。', '加。'],
     ),
 }
 
 DEFAULT_PERSONALITY = PERSONALITIES['shark']
 
 
-def _chat(personality: Personality, action: str) -> str:
-    """Pick a random chat line for this personality and action."""
-    pool = {
-        'fold':  personality.chat_fold,
-        'check': personality.chat_check,
-        'call':  personality.chat_call,
-        'raise': personality.chat_raise,
-    }
+def _chat(personality: Personality, action: str, locale: str = 'en') -> str:
+    """Pick a random chat line for this personality, action, and locale."""
+    if locale == 'zh':
+        pool = {
+            'fold':  personality.chat_fold_zh,
+            'check': personality.chat_check_zh,
+            'call':  personality.chat_call_zh,
+            'raise': personality.chat_raise_zh,
+        }
+    else:
+        pool = {
+            'fold':  personality.chat_fold,
+            'check': personality.chat_check,
+            'call':  personality.chat_call,
+            'raise': personality.chat_raise,
+        }
     return random.choice(pool.get(action, ['...']))
 
 
@@ -104,7 +140,7 @@ class RuleBasedStrategy(BotStrategy):
     def __init__(self, personality: str = 'shark') -> None:
         self._p: Personality = PERSONALITIES.get(personality, DEFAULT_PERSONALITY)
 
-    def decide(self, game_state: dict[str, Any], player_id: str) -> AIThought:
+    def decide(self, game_state: dict[str, Any], player_id: str, locale: str = 'en') -> AIThought:
         players = game_state.get('players', [])
         me = next((p for p in players if p['id'] == player_id), None)
 
@@ -148,7 +184,7 @@ class RuleBasedStrategy(BotStrategy):
             self._p.name, player_id, street, strength, to_call,
         )
 
-        return self._make_decision(strength, to_call, min_raise, chips, current_bet, pot)
+        return self._make_decision(strength, to_call, min_raise, chips, current_bet, pot, locale)
 
     def _assess_strength(self, hand: list[Card], community: list[Card], street: str) -> float:
         """Returns a 0.0–1.0 hand-strength estimate."""
@@ -193,6 +229,7 @@ class RuleBasedStrategy(BotStrategy):
         chips: int,
         current_bet: int,
         pot: int,
+        locale: str = 'en',
     ) -> AIThought:
         p = self._p
 
@@ -207,7 +244,7 @@ class RuleBasedStrategy(BotStrategy):
         # Cannot call (no chips)
         if chips <= 0:
             return AIThought(action='fold', amount=0, thought='No chips',
-                             chat_message=_chat(p, 'fold'))
+                             chat_message=_chat(p, 'fold', locale))
 
         # ─── No bet to face: check or bet ────────────────────────────────
         if to_call == 0:
@@ -217,7 +254,7 @@ class RuleBasedStrategy(BotStrategy):
                 return AIThought(
                     action='raise', amount=raise_amount,
                     thought=f'[{p.name}] Value bet (str={strength:.2f})',
-                    chat_message=_chat(p, 'raise'),
+                    chat_message=_chat(p, 'raise', locale),
                 )
             # Bluff with weak hand
             if strength < 0.30 and random.random() < p.bluff_freq:
@@ -227,11 +264,11 @@ class RuleBasedStrategy(BotStrategy):
                     return AIThought(
                         action='raise', amount=bluff_size,
                         thought=f'[{p.name}] Bluff (str={strength:.2f})',
-                        chat_message=_chat(p, 'raise'),
+                        chat_message=_chat(p, 'raise', locale),
                     )
             return AIThought(action='check', amount=0,
                              thought=f'[{p.name}] Check (str={strength:.2f})',
-                             chat_message=_chat(p, 'check'))
+                             chat_message=_chat(p, 'check', locale))
 
         # ─── Facing a bet ─────────────────────────────────────────────────
         pot_odds = to_call / (to_call + max(1, min_raise))
@@ -243,7 +280,7 @@ class RuleBasedStrategy(BotStrategy):
                 return AIThought(
                     action='raise', amount=raise_amount,
                     thought=f'[{p.name}] Value raise (str={strength:.2f})',
-                    chat_message=_chat(p, 'raise'),
+                    chat_message=_chat(p, 'raise', locale),
                 )
 
         # Good odds → call
@@ -251,7 +288,7 @@ class RuleBasedStrategy(BotStrategy):
             return AIThought(
                 action='call', amount=0,
                 thought=f'[{p.name}] Good odds call (str={strength:.2f} > po={pot_odds:.2f})',
-                chat_message=_chat(p, 'call'),
+                chat_message=_chat(p, 'call', locale),
             )
 
         # Marginal hand above fold threshold → call
@@ -259,7 +296,7 @@ class RuleBasedStrategy(BotStrategy):
             return AIThought(
                 action='call', amount=0,
                 thought=f'[{p.name}] Marginal call (str={strength:.2f})',
-                chat_message=_chat(p, 'call'),
+                chat_message=_chat(p, 'call', locale),
             )
 
         # Weak hand but personality may bluff-raise
@@ -270,7 +307,7 @@ class RuleBasedStrategy(BotStrategy):
                 return AIThought(
                     action='raise', amount=bluff_size,
                     thought=f'[{p.name}] Bluff raise (str={strength:.2f})',
-                    chat_message=_chat(p, 'raise'),
+                    chat_message=_chat(p, 'raise', locale),
                 )
 
         # Calling station special: rarely folds even when weak
@@ -278,7 +315,7 @@ class RuleBasedStrategy(BotStrategy):
             return AIThought(
                 action='call', amount=0,
                 thought=f'[{p.name}] Stubborn call (str={strength:.2f})',
-                chat_message=_chat(p, 'call'),
+                chat_message=_chat(p, 'call', locale),
             )
 
         return AIThought(

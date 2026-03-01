@@ -1,17 +1,18 @@
 import React from 'react';
 import type { PlayerAction } from '../../types';
+import { useT } from '../../i18n/I18nContext';
 
 interface ActionAnnouncementProps {
   action: PlayerAction;
 }
 
-function formatAction(action: PlayerAction): string {
+function formatAction(action: PlayerAction, t: (key: string) => string): string {
   switch (action.action) {
-    case 'fold':  return 'FOLD';
-    case 'check': return 'CHECK';
-    case 'call':  return 'CALL';
-    case 'raise': return `RAISE $${action.amount}`;
-    case 'allin': return 'ALL IN';
+    case 'fold':  return t('action.fold');
+    case 'check': return t('action.check');
+    case 'call':  return t('action.call');
+    case 'raise': return `${t('action.raise')} $${action.amount}`;
+    case 'allin': return t('action.allin');
   }
 }
 
@@ -27,8 +28,9 @@ function getActionColor(action: string): string {
 }
 
 const ActionAnnouncement: React.FC<ActionAnnouncementProps> = ({ action }) => {
+  const { t } = useT();
   const color = getActionColor(action.action);
-  const text = formatAction(action);
+  const text = formatAction(action, t);
 
   return (
     <div style={{

@@ -64,6 +64,7 @@ _strategy: BotStrategy = RuleBasedStrategy()
 _coach: Optional[AICoach | GTOCoach] = None
 _llm_engine: str = os.environ.get('DEFAULT_AI_ENGINE', 'rule-based')
 _llm_model: str = ''
+_locale: str = 'en'  # current UI locale ('en' or 'zh'), affects bot chat language
 
 
 # ─── Strategy factory ─────────────────────────────────────────────────────────
@@ -125,6 +126,12 @@ async def broadcast_state() -> None:
         p_data['is_dealer'] = (i == dealer_idx)
     await sio.emit('game_state', state)
 
+    # Check if human is eliminated after hand ends
+    if engine.state.value in ('SHOWDOWN', 'FINISHED'):
+        human = next((p for p in engine.players if p.id == 'human'), None)
+        if human and human.chips <= 0:
+            await sio.emit('game_over', {'reason': 'eliminated', 'final_chips': 0})
+
 
 async def check_ai_turn() -> None:
     """Drive bot turns until the human must act or the hand ends."""
@@ -146,6 +153,8 @@ async def check_ai_turn() -> None:
         try:
             if isinstance(strategy, LLMBotStrategy):
                 decision = await strategy.decide_async(state_for_bot, current_p.id)
+            elif isinstance(strategy, RuleBasedStrategy):
+                decision = strategy.decide(state_for_bot, current_p.id, locale=_locale)
             else:
                 decision = strategy.decide(state_for_bot, current_p.id)
         except Exception as exc:
@@ -265,6 +274,13 @@ async def start_next_hand(sid: str, data: dict[str, Any]) -> None:
         engine.start_hand()
         await broadcast_state()
         await check_ai_turn()
+    except ValueError as exc:
+        if 'Not enough players' in str(exc):
+            logger.info('Game over: not enough players to continue')
+            await sio.emit('game_over', {'reason': 'eliminated', 'final_chips': 0}, to=sid)
+        else:
+            logger.error('start_next_hand error: %s', exc)
+            await sio.emit('error', {'message': str(exc)}, to=sid)
     except Exception as exc:
         logger.error('start_next_hand error: %s', exc)
         await sio.emit('error', {'message': str(exc)}, to=sid)
@@ -320,6 +336,37 @@ async def set_llm_config(sid: str, data: dict[str, Any]) -> None:
         await sio.emit('llm_status', {'status': 'online' if healthy else 'offline'}, to=sid)
     else:
         await sio.emit('llm_status', {'status': 'online'}, to=sid)
+
+
+@sio.event
+async def connect(sid: str, environ: dict[str, Any]) -> None:
+    """On (re)connect, send current game state if a game is in progress."""
+    logger.info('Client connected: %s', sid)
+    if engine.players:
+        await broadcast_state()
+
+
+@sio.event
+async def reset_game(sid: str, data: dict[str, Any]) -> None:
+    """Full game reset — restart with fresh chips for all players."""
+    logger.info('reset_game from %s', sid)
+    engine.players = []
+    engine.add_player('human', 'PLAYER', 5000)
+    for prof in BOT_PROFILES:
+        engine.add_player(prof['id'], prof['name'], 5000)
+    engine.start_hand()
+    await broadcast_state()
+    await check_ai_turn()
+
+
+@sio.event
+async def set_locale(sid: str, data: dict[str, Any]) -> None:
+    """Set the UI locale (affects bot chat language)."""
+    global _locale
+    new_locale = data.get('locale', 'en')
+    if new_locale in ('en', 'zh'):
+        _locale = new_locale
+        logger.info('Locale set to %s by %s', _locale, sid)
 
 
 if __name__ == '__main__':

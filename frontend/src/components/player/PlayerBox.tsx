@@ -4,6 +4,7 @@ import Card from '../card/Card';
 import BotSpeechBubble from './BotSpeechBubble';
 import ChipStack from '../table/ChipStack';
 import { useGameStore } from '../../store/useGameStore';
+import { useT } from '../../i18n/I18nContext';
 
 interface PlayerBoxProps {
   player: Player;
@@ -12,12 +13,16 @@ interface PlayerBoxProps {
   badge?: string;   // 'BTN' | 'SB' | 'BB' | 'UTG' | 'HJ' | 'CO'
 }
 
-function getStatusText(player: Player, isCurrentTurn: boolean): { text: string; color: string } {
-  if (!player.is_active) return { text: 'FOLD', color: 'var(--brown)' };
-  if (player.is_all_in)  return { text: 'ALL IN', color: '#ffcc00' };
-  if (isCurrentTurn)     return { text: 'THINKING ▌', color: '#ffcc00' };
-  if (player.current_bet > 0) return { text: `BET $${player.current_bet}`, color: '#ffcc00' };
-  return { text: 'WAITING', color: 'var(--gold-d)' };
+function getStatusText(
+  player: Player,
+  isCurrentTurn: boolean,
+  t: (key: string) => string,
+): { text: string; color: string } {
+  if (!player.is_active) return { text: t('status.fold'), color: 'var(--brown)' };
+  if (player.is_all_in)  return { text: t('status.allin'), color: '#ffcc00' };
+  if (isCurrentTurn)     return { text: t('status.thinking'), color: '#ffcc00' };
+  if (player.current_bet > 0) return { text: `${t('status.bet')} $${player.current_bet}`, color: '#ffcc00' };
+  return { text: t('status.waiting'), color: 'var(--gold-d)' };
 }
 
 const PlayerBox: React.FC<PlayerBoxProps> = ({
@@ -26,8 +31,9 @@ const PlayerBox: React.FC<PlayerBoxProps> = ({
   chipBubbleSide,
   badge,
 }) => {
+  const { t } = useT();
   const isFolded = !player.is_active;
-  const status = getStatusText(player, isCurrentTurn);
+  const status = getStatusText(player, isCurrentTurn, t);
   // Subscribe directly to this bot's current thought (avoids prop drilling)
   const thought = useGameStore(s => s.botThoughts[player.id]);
 
@@ -36,7 +42,6 @@ const PlayerBox: React.FC<PlayerBoxProps> = ({
     border: '2px solid var(--brown)',
     padding: '20px 28px',
     width: 400,
-    position: 'relative',
     clipPath: 'var(--clip-sm)',
     opacity: isFolded ? 0.3 : 1,
     flexShrink: 0,
@@ -91,9 +96,9 @@ const PlayerBox: React.FC<PlayerBoxProps> = ({
       alignItems: 'center',
       gap: 10,
     }}>
-      {/* Main pbox */}
-      <div style={{ ...boxStyle, ...activeBoxStyle }}>
-        {/* Position badge */}
+      {/* Box wrapper — badge sits outside the clipped div so it won't be cut off */}
+      <div style={{ position: 'relative' }}>
+        {/* Position badge — OUTSIDE clipPath to avoid clipping */}
         {badge && (
           <div style={{
             position: 'absolute',
@@ -105,77 +110,81 @@ const PlayerBox: React.FC<PlayerBoxProps> = ({
             padding: '4px 10px',
             fontFamily: 'var(--font-ui)',
             lineHeight: 1.4,
+            zIndex: 2,
           }}>
             {badge}
           </div>
         )}
 
-        {/* Bot name */}
-        <div style={{
-          fontFamily: 'var(--font-ui)',
-          fontSize: 22,
-          color: 'var(--gold)',
-          marginBottom: 6,
-          overflow: 'hidden',
-          textOverflow: 'ellipsis',
-          whiteSpace: 'nowrap',
-        }}>
-          {player.name}
-        </div>
+        {/* Main pbox — has clipPath */}
+        <div style={{ ...boxStyle, ...activeBoxStyle }}>
+          {/* Bot name */}
+          <div style={{
+            fontFamily: 'var(--font-ui)',
+            fontSize: 22,
+            color: 'var(--gold)',
+            marginBottom: 6,
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap',
+          }}>
+            {player.name}
+          </div>
 
-        {/* Chips — key replays numUpdate animation when chips change */}
-        <div style={{
-          fontSize: 16,
-          color: 'var(--gold-l)',
-          marginBottom: 5,
-          fontFamily: 'var(--font-label)',
-        }}>
-          <span
-            key={player.chips}
-            style={{ display: 'inline-block', animation: 'numUpdate 0.35s ease-out' }}
-          >
-            ${player.chips.toLocaleString()}
-          </span>
-        </div>
+          {/* Chips — key replays numUpdate animation when chips change */}
+          <div style={{
+            fontSize: 16,
+            color: 'var(--gold-l)',
+            marginBottom: 5,
+            fontFamily: 'var(--font-label)',
+          }}>
+            <span
+              key={player.chips}
+              style={{ display: 'inline-block', animation: 'numUpdate 0.35s ease-out' }}
+            >
+              ${player.chips.toLocaleString()}
+            </span>
+          </div>
 
-        {/* Status */}
-        <div style={{
-          fontSize: 16,
-          color: status.color,
-          fontFamily: 'var(--font-label)',
-        }}>
-          {status.text}
-        </div>
+          {/* Status */}
+          <div style={{
+            fontSize: 16,
+            color: status.color,
+            fontFamily: 'var(--font-label)',
+          }}>
+            {status.text}
+          </div>
 
-        {/* Cards (face-down or face-up at showdown) */}
-        <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
-          {showCards ? (
-            <>
-              <Card
-                size="md"
-                variant="face-up"
-                rank={(player.hand[0] as CardType).rank}
-                suit={(player.hand[0] as CardType).suit}
-              />
-              <Card
-                size="md"
-                variant="face-up"
-                rank={(player.hand[1] as CardType).rank}
-                suit={(player.hand[1] as CardType).suit}
-              />
-            </>
-          ) : (
-            <>
-              <Card size="md" variant="face-down" />
-              <Card size="md" variant="face-down" />
-            </>
+          {/* Cards (face-down or face-up at showdown) */}
+          <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
+            {showCards ? (
+              <>
+                <Card
+                  size="md"
+                  variant="face-up"
+                  rank={(player.hand[0] as CardType).rank}
+                  suit={(player.hand[0] as CardType).suit}
+                />
+                <Card
+                  size="md"
+                  variant="face-up"
+                  rank={(player.hand[1] as CardType).rank}
+                  suit={(player.hand[1] as CardType).suit}
+                />
+              </>
+            ) : (
+              <>
+                <Card size="md" variant="face-down" />
+                <Card size="md" variant="face-down" />
+              </>
+            )}
+          </div>
+
+          {/* Speech bubble — floats outside this box via absolute positioning */}
+          {thought && (
+            <BotSpeechBubble text={thought.chat} side={chipBubbleSide} fading={thought.fading} />
           )}
         </div>
-
-        {/* Speech bubble — floats outside this box via absolute positioning */}
-        {thought && (
-          <BotSpeechBubble text={thought.chat} side={chipBubbleSide} fading={thought.fading} />
-        )}
       </div>
 
       {/* Chip bubble */}

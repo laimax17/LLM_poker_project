@@ -1,5 +1,6 @@
 import React, { useRef, useEffect, useState } from 'react';
 import ChipStack from './ChipStack';
+import { useT } from '../../i18n/I18nContext';
 
 interface PotDisplayProps {
   pot: number;
@@ -7,6 +8,7 @@ interface PotDisplayProps {
 }
 
 const PotDisplay: React.FC<PotDisplayProps> = ({ pot, street }) => {
+  const { t } = useT();
   // Track whether the pot just grew so we can apply the glow animation
   const prevPot = useRef(pot);
   const [glowing, setGlowing] = useState(false);
@@ -57,7 +59,7 @@ const PotDisplay: React.FC<PotDisplayProps> = ({ pot, street }) => {
         fontFamily: 'var(--font-label)',
         whiteSpace: 'nowrap',
       }}>
-        ◈ POT :{' '}
+        {t('pot.label')}{' '}
         <span
           key={pot}
           style={{ display: 'inline-block', animation: 'numUpdate 0.4s ease-out' }}
