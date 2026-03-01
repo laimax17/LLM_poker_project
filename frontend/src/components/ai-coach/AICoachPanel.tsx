@@ -1,6 +1,7 @@
 import React from 'react';
 import type { AICoachAdvice } from '../../types';
 import InlineCard from '../card/InlineCard';
+import { useT } from '../../i18n/I18nContext';
 
 interface AICoachPanelProps {
   advice: AICoachAdvice | null;
@@ -23,6 +24,8 @@ const STAT_COLORS: Record<string, string> = {
 };
 
 const AICoachPanel: React.FC<AICoachPanelProps> = ({ advice, isLoading, onClose }) => {
+  const { t } = useT();
+
   return (
     <div style={{
       position: 'relative',
@@ -56,7 +59,7 @@ const AICoachPanel: React.FC<AICoachPanelProps> = ({ advice, isLoading, onClose 
           letterSpacing: 2,
           fontFamily: 'var(--font-label)',
         }}>
-          ◈ AI COACH
+          {t('coach.title')}
         </div>
         <button
           onClick={onClose}
@@ -87,7 +90,7 @@ const AICoachPanel: React.FC<AICoachPanelProps> = ({ advice, isLoading, onClose 
           alignItems: 'center',
         }}>
           <span style={{ animation: 'blink 1s steps(1) infinite' }}>
-            ◈ AI THINKING...
+            {t('coach.thinking')}
           </span>
         </div>
       )}
@@ -105,7 +108,7 @@ const AICoachPanel: React.FC<AICoachPanelProps> = ({ advice, isLoading, onClose 
               : undefined,
             marginBottom: 16,
           }}>
-            推荐：{advice.recommendation}
+            {t('coach.recommend')}{advice.recommendation}
             {advice.recommendedAmount != null && ` → $${advice.recommendedAmount}`}
           </div>
 
@@ -175,7 +178,7 @@ const AICoachPanel: React.FC<AICoachPanelProps> = ({ advice, isLoading, onClose 
           textAlign: 'center',
           padding: '20px 0',
         }}>
-          点击 ◈ ASK AI 获取建议
+          {t('coach.empty')}
         </div>
       )}
     </div>

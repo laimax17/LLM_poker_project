@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import type { GameState } from '../../types';
+import { useT } from '../../i18n/I18nContext';
 
 interface ActionBarProps {
   gameState: GameState;
@@ -30,6 +31,7 @@ const ActionBar: React.FC<ActionBarProps> = ({
   disabled,
   showCoach,
 }) => {
+  const { t } = useT();
   const [raiseAmount, setRaiseAmount] = useState<string>('');
   const [stepIdx, setStepIdx] = useState(2); // default step = STEPS[2] = 10
 
@@ -124,7 +126,7 @@ const ActionBar: React.FC<ActionBarProps> = ({
           disabled={disabled}
           onClick={() => onAction('fold', 0)}
         >
-          FOLD<Hint k="F" />
+          {t('action.fold')}<Hint k="F" />
         </button>
 
         {/* CHECK — two-line structure keeps height identical to CALL */}
@@ -135,7 +137,7 @@ const ActionBar: React.FC<ActionBarProps> = ({
             disabled={disabled}
             onClick={() => onAction('check', 0)}
           >
-            CHECK<Hint k="C" />
+            {t('action.check')}<Hint k="C" />
             {/* invisible spacer so height matches CALL+odds */}
             <span style={{ fontSize: 6, visibility: 'hidden' }}>0.0:1</span>
           </button>
@@ -149,9 +151,9 @@ const ActionBar: React.FC<ActionBarProps> = ({
             disabled={disabled}
             onClick={() => onAction('call', 0)}
           >
-            CALL ${toCall}<Hint k="C" />
+            {t('action.call')} ${toCall}<Hint k="C" />
             <span style={{ fontSize: 6, visibility: potOdds ? 'visible' : 'hidden', color: 'var(--gold-d)' }}>
-              {potOdds ?? '0.0'}:1 ODDS
+              {potOdds ?? '0.0'}:1 {t('bet.odds')}
             </span>
           </button>
         )}
@@ -163,7 +165,7 @@ const ActionBar: React.FC<ActionBarProps> = ({
           disabled={isRequestingAdvice}
           onClick={onAskAI}
         >
-          {isRequestingAdvice ? '◈ THINKING...' : '◈ ASK AI'}
+          {isRequestingAdvice ? t('action.thinking') : t('action.askAi')}
         </button>
 
       </div>
@@ -187,15 +189,15 @@ const ActionBar: React.FC<ActionBarProps> = ({
         {/* Quick-bet buttons */}
         <button className="abtn" style={smBtn} disabled={disabled}
           onClick={() => setQuickBet(Math.round(gameState.pot / 2))}>
-          ½ POT
+          {t('bet.halfPot')}
         </button>
         <button className="abtn" style={smBtn} disabled={disabled}
           onClick={() => setQuickBet(gameState.pot)}>
-          POT
+          {t('bet.pot')}
         </button>
         <button className="abtn" style={smBtn} disabled={disabled}
           onClick={() => setQuickBet(40)}>
-          2×BB
+          {t('bet.2xbb')}
         </button>
 
         {/* Decrement */}
@@ -230,7 +232,7 @@ const ActionBar: React.FC<ActionBarProps> = ({
           ◀
         </button>
         <div style={{ fontSize: 7, color: 'var(--gold-d)', fontFamily: 'var(--font-label)', whiteSpace: 'nowrap', letterSpacing: 1 }}>
-          STEP {step}
+          {t('bet.step')} {step}
         </div>
         <button className="abtn" style={{ fontSize: 10, padding: '4px 6px', lineHeight: 1, borderColor: 'var(--gold-d)', color: 'var(--gold-d)' }}
           onClick={() => setStepIdx(i => (i + 1) % STEPS.length)}>
@@ -248,7 +250,7 @@ const ActionBar: React.FC<ActionBarProps> = ({
           disabled={disabled || raiseAmount === ''}
           onClick={handleRaise}
         >
-          RAISE ▲<Hint k="R" />
+          {t('action.raise')} ▲<Hint k="R" />
         </button>
 
         {/* ALL IN */}
@@ -258,7 +260,7 @@ const ActionBar: React.FC<ActionBarProps> = ({
           onClick={() => onAction('allin', 0)}
           style={{ borderColor: '#aa2222', color: '#ff4444', fontSize: 7, padding: '4px 10px', lineHeight: 1.5 }}
         >
-          ALL IN<br />${human?.chips}<Hint k="A" />
+          {t('action.allin')}<br />${human?.chips}<Hint k="A" />
         </button>
 
       </div>

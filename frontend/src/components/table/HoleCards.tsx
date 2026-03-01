@@ -1,6 +1,7 @@
 import React from 'react';
 import type { Card as CardType } from '../../types';
 import Card from '../card/Card';
+import { useT } from '../../i18n/I18nContext';
 
 interface HoleCardsProps {
   cards: (CardType | null)[];
@@ -9,6 +10,7 @@ interface HoleCardsProps {
 }
 
 const HoleCards: React.FC<HoleCardsProps> = ({ cards, isHumanTurn, handCount }) => {
+  const { t } = useT();
   return (
     <div style={{
       position: 'absolute',
@@ -29,7 +31,7 @@ const HoleCards: React.FC<HoleCardsProps> = ({ cards, isHumanTurn, handCount }) 
         fontFamily: 'var(--font-label)',
         whiteSpace: 'nowrap',
       }}>
-        ▼ YOUR HAND
+        ▼ {t('human.yourHand')}
       </div>
 
       {/* Two hole cards */}

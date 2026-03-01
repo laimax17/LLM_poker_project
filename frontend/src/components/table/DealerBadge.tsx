@@ -1,4 +1,5 @@
 import React from 'react';
+import { useT } from '../../i18n/I18nContext';
 
 interface DealerBadgeProps {
   isDealing: boolean;
@@ -7,12 +8,13 @@ interface DealerBadgeProps {
 }
 
 const DealerBadge: React.FC<DealerBadgeProps> = ({ isDealing, isRevealing, isShowdown }) => {
+  const { t } = useT();
   const active = isDealing || isRevealing;
   const label = isShowdown
-    ? '◈ SHOWDOWN ◈'
+    ? t('dealer.showdown')
     : active
-      ? '◈ DEALING...'
-      : '◈ DEALER';
+      ? t('dealer.dealing')
+      : t('dealer.label');
 
   return (
     <div style={{

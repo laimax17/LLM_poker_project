@@ -19,6 +19,11 @@ import {
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL ?? 'http://localhost:8000';
 
+interface GameOverData {
+  reason: string;
+  final_chips: number;
+}
+
 interface GameStore {
   // Connection
   socket: Socket | null;
@@ -44,6 +49,10 @@ interface GameStore {
   // Floating action announcement
   currentAction: PlayerAction | null;
 
+  // Game over
+  isGameOver: boolean;
+  gameOverReason: string | null;
+
   // LLM Config
   llmConfig: LLMConfig;
 
@@ -52,9 +61,11 @@ interface GameStore {
   startGame: () => Promise<void>;
   sendAction: (action: string, amount?: number) => void;
   startNextHand: () => void;
+  resetGame: () => void;
   requestAdvice: () => void;
   closeCoach: () => void;
   setLLMConfig: (config: Partial<LLMConfig>) => void;
+  setLocale: (locale: string) => void;
 }
 
 export const useGameStore = create<GameStore>((set, get) => ({
@@ -65,6 +76,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
   errorMessage: null,
   handCount: 0,
   currentAction: null,
+  isGameOver: false,
+  gameOverReason: null,
   coachAdvice: null,
   isRequestingAdvice: false,
   showCoach: false,
@@ -172,6 +185,10 @@ export const useGameStore = create<GameStore>((set, get) => ({
       }, 1500);
     });
 
+    socket.on('game_over', (data: GameOverData) => {
+      set({ isGameOver: true, gameOverReason: data.reason });
+    });
+
     socket.on('ai_advice', (data: AICoachAdvice) => {
       set({ coachAdvice: data, isRequestingAdvice: false, showCoach: true });
     });
@@ -193,6 +210,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
   startGame: async () => {
     prewarmAudio(); // initialize AudioContext during user gesture
+    set({ isGameOver: false, gameOverReason: null });
     try {
       const res = await fetch(`${BACKEND_URL}/start-game`, { method: 'POST' });
       if (!res.ok) throw new Error('Failed to start game');
@@ -234,6 +252,17 @@ export const useGameStore = create<GameStore>((set, get) => ({
     if (socket) {
       socket.emit('start_next_hand', {});
     }
+  },
+
+  resetGame: () => {
+    const { socket } = get();
+    if (socket) socket.emit('reset_game', {});
+    set({ isGameOver: false, gameOverReason: null, gameState: null, handCount: 0, botThoughts: {} });
+  },
+
+  setLocale: (locale: string) => {
+    const { socket } = get();
+    if (socket) socket.emit('set_locale', { locale });
   },
 
   requestAdvice: () => {

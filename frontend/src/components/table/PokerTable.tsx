@@ -8,6 +8,7 @@ import HoleCards from './HoleCards';
 import DealerBadge from './DealerBadge';
 import ActionAnnouncement from './ActionAnnouncement';
 import { useGameStore } from '../../store/useGameStore';
+import { useT } from '../../i18n/I18nContext';
 
 interface PokerTableProps {
   gameState: GameState;
@@ -33,6 +34,7 @@ function getBadge(
 }
 
 const PokerTable: React.FC<PokerTableProps> = ({ gameState, handCount }) => {
+  const { t } = useT();
   const { players, community_cards, pot, state, current_player_idx } = gameState;
 
   // players[0] = human; bots = players[1..5]
@@ -249,7 +251,7 @@ const PokerTable: React.FC<PokerTableProps> = ({ gameState, handCount }) => {
                 whiteSpace: 'nowrap',
               }}>
                 <div style={{ fontSize: 7, color: 'var(--gold-d)', letterSpacing: 3, marginBottom: 8, fontFamily: 'var(--font-label)' }}>
-                  ◈ SHOWDOWN ◈
+                  {t('showdown.label')}
                 </div>
                 <div style={{ fontSize: 12, color: 'var(--gold)', letterSpacing: 1, marginBottom: 6, fontFamily: 'var(--font-ui)' }}>
                   {winnerNames}
