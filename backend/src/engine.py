@@ -230,8 +230,9 @@ class PokerEngine:
             if self.raise_count >= self.max_raises_per_street:
                 raise ValueError(f"Raise cap reached ({self.max_raises_per_street} raises per street)")
             if amount < self.current_bet + self.min_raise:
-                 if amount < p.chips + p.current_bet:
-                     raise ValueError(f"Raise too small. Min total: {self.current_bet + self.min_raise}")
+                is_all_in_raise = (amount >= p.chips + p.current_bet)
+                if not is_all_in_raise:
+                    raise ValueError(f"Raise too small. Min total: {self.current_bet + self.min_raise}")
 
             added = amount - p.current_bet
             if added > p.chips:

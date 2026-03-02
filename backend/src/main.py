@@ -165,6 +165,9 @@ async def check_ai_turn() -> None:
             state_for_bot = engine.get_public_game_state(current_p.id)
 
             strategy = _get_strategy(current_p.id)
+            is_llm_call = isinstance(strategy, LLMBotStrategy) and state_for_bot.get('state') != 'PREFLOP'
+            if is_llm_call:
+                await sio.emit('ai_thinking', {'player_id': current_p.id})
             try:
                 if isinstance(strategy, LLMBotStrategy):
                     decision = await strategy.decide_async(state_for_bot, current_p.id)
@@ -175,6 +178,9 @@ async def check_ai_turn() -> None:
             except Exception as exc:
                 logger.error('Strategy.decide failed for %s: %s', current_p.id, exc)
                 decision = AIThought(action='fold', amount=0, thought='error fallback', chat_message='...')
+            finally:
+                if is_llm_call:
+                    await sio.emit('ai_thinking_done', {'player_id': current_p.id})
 
             if decision.chat_message:
                 await sio.emit('ai_thought', {
@@ -315,10 +321,16 @@ async def request_advice(sid: str, data: dict[str, Any]) -> None:
         _rebuild_bot_strategies(req_engine, req_model)
 
     if _coach is None:
+        if _locale == 'zh':
+            _no_llm_body = '请先在 LLM 配置栏选择 Ollama 或 Qwen AI 引擎以使用 AI Coach。'
+            _no_llm_label = '状态'
+        else:
+            _no_llm_body = 'Select an Ollama or Qwen engine in the LLM Config bar to use AI Coach.'
+            _no_llm_label = 'Status'
         await sio.emit('ai_advice', {
             'recommendation': 'CHECK',
-            'body': '请先在 LLM 配置栏选择 Ollama 或 Qwen AI 引擎以使用 AI Coach。',
-            'stats': [{'label': '状态', 'value': 'NO LLM', 'quality': 'bad'}],
+            'body': _no_llm_body,
+            'stats': [{'label': _no_llm_label, 'value': 'NO LLM', 'quality': 'bad'}],
         }, to=sid)
         return
 

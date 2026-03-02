@@ -35,6 +35,9 @@ interface GameStore {
   // Bot thoughts (speech bubbles per bot)
   botThoughts: Record<string, BotThought>;
 
+  // Bots currently waiting on LLM response (shows spinner)
+  thinkingBots: Record<string, boolean>;
+
   // Error toast
   errorMessage: string | null;
 
@@ -73,6 +76,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
   isConnected: false,
   gameState: null,
   botThoughts: {},
+  thinkingBots: {},
   errorMessage: null,
   handCount: 0,
   currentAction: null,
@@ -191,6 +195,20 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
     socket.on('ai_advice', (data: AICoachAdvice) => {
       set({ coachAdvice: data, isRequestingAdvice: false, showCoach: true });
+    });
+
+    socket.on('ai_thinking', (data: { player_id: string }) => {
+      set(state => ({
+        thinkingBots: { ...state.thinkingBots, [data.player_id]: true },
+      }));
+    });
+
+    socket.on('ai_thinking_done', (data: { player_id: string }) => {
+      set(state => {
+        const updated = { ...state.thinkingBots };
+        delete updated[data.player_id];
+        return { thinkingBots: updated };
+      });
     });
 
     socket.on('llm_status', (data: { status: 'online' | 'offline' }) => {

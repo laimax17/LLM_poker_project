@@ -36,6 +36,7 @@ const PlayerBox: React.FC<PlayerBoxProps> = ({
   const status = getStatusText(player, isCurrentTurn, t);
   // Subscribe directly to this bot's current thought (avoids prop drilling)
   const thought = useGameStore(s => s.botThoughts[player.id]);
+  const isThinking = useGameStore(s => s.thinkingBots[player.id] ?? false);
 
   const boxStyle: React.CSSProperties = {
     background: 'rgba(10, 9, 0, 0.88)',
@@ -151,7 +152,22 @@ const PlayerBox: React.FC<PlayerBoxProps> = ({
             fontSize: 10,
             color: status.color,
             fontFamily: 'var(--font-label)',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 5,
           }}>
+            {isThinking && (
+              <span style={{
+                display: 'inline-block',
+                width: 8,
+                height: 8,
+                borderRadius: '50%',
+                border: '2px solid var(--gold)',
+                borderTopColor: 'transparent',
+                animation: 'spin 0.7s linear infinite',
+                flexShrink: 0,
+              }} />
+            )}
             {status.text}
           </div>
 

@@ -167,6 +167,10 @@
   50%      { box-shadow: 0 0 18px rgba(200,160,64,0.7); }
 }
 
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
 /* Hide native number input spinners (Part 1) */
 input[type=number]::-webkit-inner-spin-button,
 input[type=number]::-webkit-outer-spin-button { display: none; }

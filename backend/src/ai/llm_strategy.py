@@ -56,7 +56,7 @@ class LLMBotStrategy(BotStrategy):
         try:
             user_prompt = self._build_prompt(game_state, player_id)
             raw = await self.llm.chat(BOT_SYSTEM_PROMPT, user_prompt)
-            decision = self._parse_response(raw, game_state)
+            decision = self._parse_response(raw, game_state, player_id)
             logger.debug('LLMBotStrategy decision for %s: %s', player_id, decision.action)
             return decision
         except Exception as exc:
@@ -82,7 +82,7 @@ class LLMBotStrategy(BotStrategy):
             f"请给出你的决策。"
         )
 
-    def _parse_response(self, raw: str, game_state: dict[str, Any]) -> AIThought:
+    def _parse_response(self, raw: str, game_state: dict[str, Any], player_id: str = '') -> AIThought:
         match = JSON_RE.search(raw)
         if not match:
             raise ValueError(f'No JSON found in LLM response: {raw[:200]!r}')
@@ -98,10 +98,13 @@ class LLMBotStrategy(BotStrategy):
             action = 'fold'
 
         amount = int(data.get('amount', 0))
-        # Clamp raise amount
+        # Clamp raise amount: enforce both lower bound (min raise) and upper bound (player chips)
         if action == 'raise':
+            players = game_state.get('players', [])
+            me = next((p for p in players if p.get('id') == player_id), {}) if hasattr(game_state, 'get') else {}
+            my_total = me.get('chips', 0) + me.get('current_bet', 0)
             min_raise = game_state.get('current_bet', 0) + game_state.get('min_raise', 20)
-            amount = max(min_raise, amount)
+            amount = max(min_raise, min(amount, my_total) if my_total > 0 else amount)
 
         return AIThought(
             action=action,

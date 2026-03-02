@@ -13,7 +13,7 @@ from .llm_client import LLMClient
 
 logger = logging.getLogger(__name__)
 
-OLLAMA_TIMEOUT = 30.0
+OLLAMA_TIMEOUT = 15.0
 HEALTH_TIMEOUT = 5.0
 
 
