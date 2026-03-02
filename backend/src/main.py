@@ -57,11 +57,11 @@ BOT_PROFILES: list[dict[str, str]] = [
 
 # ─── Per-bot thinking delay (seconds) tuned to personality ────────────────────
 BOT_THINK_TIME: dict[str, tuple[float, float]] = {
-    'bot_1': (1.2, 3.0),   # NEON    / shark   — balanced, calculated
-    'bot_2': (2.0, 4.5),   # GRANITE / rock    — slow, deliberate
-    'bot_3': (0.8, 2.0),   # BLAZE   / maniac  — fast, impulsive
-    'bot_4': (1.5, 4.0),   # GLACIER / station — indecisive
-    'bot_5': (1.2, 3.5),   # CIPHER  / tag     — moderate
+    'bot_1': (1.2, 2.5),   # NEON    / shark   — balanced, calculated
+    'bot_2': (1.5, 3.0),   # GRANITE / rock    — slow, deliberate (was 4.5s)
+    'bot_3': (0.6, 1.5),   # BLAZE   / maniac  — fast, impulsive
+    'bot_4': (1.2, 3.0),   # GLACIER / station — indecisive (was 4.0s)
+    'bot_5': (1.0, 2.5),   # CIPHER  / tag     — moderate
 }
 _DEFAULT_THINK_TIME: tuple[float, float] = (1.0, 2.5)
 

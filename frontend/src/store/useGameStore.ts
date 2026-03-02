@@ -146,18 +146,21 @@ export const useGameStore = create<GameStore>((set, get) => ({
     });
 
     socket.on('ai_thought', (data: BotThought) => {
+      // Use a unique token per message to avoid timer cross-fire when two
+      // identical chat strings arrive close together.
+      const token = `${data.player_id}:${Date.now()}`;
       set(state => ({
         botThoughts: {
           ...state.botThoughts,
-          [data.player_id]: data,
+          [data.player_id]: { ...data, _token: token } as BotThought & { _token: string },
         },
       }));
       // Two-step auto-clear: fade at 3.5 s, remove at 4 s.
-      // Guard compares `chat` string so a newer thought is never cleared early.
+      // Guard checks token so a newer thought is never cleared early.
       setTimeout(() => {
         set(state => {
-          const existing = state.botThoughts[data.player_id];
-          if (!existing || existing.chat !== data.chat) return state;
+          const existing = state.botThoughts[data.player_id] as (BotThought & { _token?: string }) | undefined;
+          if (!existing || (existing as { _token?: string })._token !== token) return state;
           return {
             botThoughts: {
               ...state.botThoughts,
@@ -168,8 +171,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
       }, 3500);
       setTimeout(() => {
         set(state => {
-          const existing = state.botThoughts[data.player_id];
-          if (!existing || existing.chat !== data.chat) return state;
+          const existing = state.botThoughts[data.player_id] as (BotThought & { _token?: string }) | undefined;
+          if (!existing || (existing as { _token?: string })._token !== token) return state;
           const updated = { ...state.botThoughts };
           delete updated[data.player_id];
           return { botThoughts: updated };
@@ -291,7 +294,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
   },
 
   closeCoach: () => {
-    set({ showCoach: false });
+    set({ showCoach: false, isRequestingAdvice: false });
   },
 
   setLLMConfig: (config: Partial<LLMConfig>) => {

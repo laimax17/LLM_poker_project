@@ -32,7 +32,7 @@ def estimate_equity(
     my_hand: List[Card],
     community: List[Card],
     num_opponents: int,
-    n_sim: int = 400,
+    n_sim: int = 500,
 ) -> float:
     """
     Estimate win equity via Monte Carlo simulation.
@@ -46,7 +46,7 @@ def estimate_equity(
     num_opponents : int
         Number of active opponents still in the hand.
     n_sim : int
-        Number of simulations. 400 ≈ 3–6ms on typical hardware.
+        Number of simulations. 500 ≈ 4–8ms on typical hardware.
 
     Returns
     -------

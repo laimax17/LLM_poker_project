@@ -84,7 +84,7 @@ class GTOBotStrategy(BotStrategy):
     """
 
     # Number of Monte Carlo simulations per decision
-    N_SIM_POSTFLOP: int = 300
+    N_SIM_POSTFLOP: int = 500
 
     def decide(self, game_state: dict[str, Any], player_id: str) -> AIThought:
         """Main entry: dispatch to pre- or post-flop logic."""
