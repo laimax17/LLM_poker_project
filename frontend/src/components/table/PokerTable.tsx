@@ -202,12 +202,12 @@ const PokerTable: React.FC<PokerTableProps> = ({ gameState, handCount }) => {
             />
           )}
 
-          {/* Human player info box (bottom right) */}
+          {/* Human player info box (bottom center-right, beside hole cards) */}
           {humanPlayer && (
             <div style={{
               position: 'absolute',
               bottom: 20,
-              right: 10,
+              left: 'calc(50% + 90px)',
             }}>
               <HumanPanel
                 player={humanPlayer}

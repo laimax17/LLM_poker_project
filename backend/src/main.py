@@ -55,6 +55,16 @@ BOT_PROFILES: list[dict[str, str]] = [
     {'id': 'bot_5', 'name': 'CIPHER',  'personality': 'tag'},
 ]
 
+# ─── Per-bot thinking delay (seconds) tuned to personality ────────────────────
+BOT_THINK_TIME: dict[str, tuple[float, float]] = {
+    'bot_1': (1.2, 3.0),   # NEON    / shark   — balanced, calculated
+    'bot_2': (2.0, 4.5),   # GRANITE / rock    — slow, deliberate
+    'bot_3': (0.8, 2.0),   # BLAZE   / maniac  — fast, impulsive
+    'bot_4': (1.5, 4.0),   # GLACIER / station — indecisive
+    'bot_5': (1.2, 3.5),   # CIPHER  / tag     — moderate
+}
+_DEFAULT_THINK_TIME: tuple[float, float] = (1.0, 2.5)
+
 # ─── Global state ─────────────────────────────────────────────────────────────
 engine = PokerEngine()
 # Per-bot strategy dict (for rule-based mode, each bot has its own personality)
@@ -146,7 +156,8 @@ async def check_ai_turn() -> None:
         if not (current_p.id.startswith('bot_') and current_p.is_active and not current_p.is_all_in):
             break
 
-        await asyncio.sleep(random.uniform(0.5, 1.2))
+        think_lo, think_hi = BOT_THINK_TIME.get(current_p.id, _DEFAULT_THINK_TIME)
+        await asyncio.sleep(random.uniform(think_lo, think_hi))
         state_for_bot = engine.get_public_game_state(current_p.id)
 
         strategy = _get_strategy(current_p.id)
