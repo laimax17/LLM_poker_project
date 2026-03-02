@@ -21,6 +21,38 @@ from .board_texture import analyze_board, BoardTexture
 
 logger = logging.getLogger(__name__)
 
+# ─── Constants ────────────────────────────────────────────────────────────────
+
+# Pre-flop: BB squeeze
+_BB_SQUEEZE_OPEN_THRESH: float = 0.70  # open_f must exceed this for BB to consider squeeze
+_BB_SQUEEZE_PROB: float = 0.40         # probability of executing the squeeze
+
+# Pre-flop: all-in call and 3-bet frequencies
+_ALLIN_CALL_FREQ_MULT: float = 0.50    # scales call_f for all-in decisions
+_THREE_BET_OPEN_OFFSET: float = 0.50   # open_f must exceed this offset to enable 3-bet
+_THREE_BET_FREQ_MULT: float = 0.40     # scales the 3-bet probability
+
+# Post-flop: board-texture thresholds for bet sizing
+_WETNESS_THRESHOLD: float = 0.50       # wetness ≥ this → use larger sizing
+
+# Post-flop: pot fractions per board texture
+_WET_BET_FRAC: float = 0.66            # 2/3 pot on wet boards
+_DRY_BET_FRAC: float = 0.33            # 1/3 pot on dry boards
+
+# Post-flop: equity thresholds for value / bluff decisions
+_WET_VALUE_THRESH: float = 0.70        # equity needed to value-bet on wet boards
+_DRY_VALUE_THRESH: float = 0.65        # equity needed to value-bet on dry boards
+_BLUFF_EQUITY_THRESH: float = 0.30     # equity below which bot may bluff (when checking)
+_SEMI_BLUFF_EQUITY_THRESH: float = 0.20  # equity below which semi-bluff raise is allowed
+
+# Post-flop: equity margins over pot odds
+_VALUE_RAISE_MARGIN: float = 0.10      # equity must exceed pot_odds by this to value-raise
+_CALL_MARGIN: float = 0.08             # equity must exceed pot_odds by this to call
+
+# Post-flop: mixed strategy probability for marginal spots
+_MARGINAL_CALL_PROB: float = 0.35      # frequency of marginal calls when equity barely > pot_odds
+
+
 # ─── Chat message pools ───────────────────────────────────────────────────────
 
 _CHAT: dict[str, List[str]] = {
@@ -163,7 +195,7 @@ class GTOBotStrategy(BotStrategy):
         # BB special case: no open-raise needed (already posted)
         if position == 'BB' and can_check:
             # BB can squeeze with 3-bet hands or check
-            if open_f > 0.7 and random.random() < 0.4:
+            if open_f > _BB_SQUEEZE_OPEN_THRESH and random.random() < _BB_SQUEEZE_PROB:
                 raise_amount = min(min_raise * 3, my_chips)
                 if raise_amount > 0:
                     return AIThought(
@@ -197,7 +229,7 @@ class GTOBotStrategy(BotStrategy):
             # There is a raise to face
             if to_call >= my_chips:
                 # All-in or fold decision
-                if call_f > 0 and random.random() < call_f * 0.5:
+                if call_f > 0 and random.random() < call_f * _ALLIN_CALL_FREQ_MULT:
                     return AIThought(
                         action='call', amount=0,
                         thought=f'All-in call: {combo}',
@@ -210,8 +242,8 @@ class GTOBotStrategy(BotStrategy):
                 )
 
             # 3-bet opportunity: strong hands get aggressive
-            three_bet_f = max(0.0, open_f - 0.5)  # only widest openers 3-bet
-            if three_bet_f > 0 and random.random() < three_bet_f * 0.4:
+            three_bet_f = max(0.0, open_f - _THREE_BET_OPEN_OFFSET)  # only widest openers 3-bet
+            if three_bet_f > 0 and random.random() < three_bet_f * _THREE_BET_FREQ_MULT:
                 raise_amount = min(to_call * 3, my_chips)
                 raise_amount = max(raise_amount, min_raise)
                 return AIThought(
@@ -261,12 +293,12 @@ class GTOBotStrategy(BotStrategy):
 
         # ── Bet sizing based on texture ──────────────────────────────────────
         # Dry boards → smaller sizing; wet boards → larger sizing
-        if texture.wetness >= 0.5:
-            bet_fraction = 0.66  # 2/3 pot on wet boards
-            value_threshold = 0.70
+        if texture.wetness >= _WETNESS_THRESHOLD:
+            bet_fraction = _WET_BET_FRAC    # 2/3 pot on wet boards
+            value_threshold = _WET_VALUE_THRESH
         else:
-            bet_fraction = 0.33  # 1/3 pot on dry boards
-            value_threshold = 0.65
+            bet_fraction = _DRY_BET_FRAC    # 1/3 pot on dry boards
+            value_threshold = _DRY_VALUE_THRESH
 
         bet_size = max(int(pot * bet_fraction), min_raise)
         bet_size = min(bet_size, my_chips)
@@ -289,7 +321,7 @@ class GTOBotStrategy(BotStrategy):
                     thought=f'Value bet: {thought_base}',
                     chat_message=_chat('raise'),
                 )
-            if equity < 0.30 and random.random() < bluff_freq:
+            if equity < _BLUFF_EQUITY_THRESH and random.random() < bluff_freq:
                 # Bluff with balanced frequency
                 return AIThought(
                     action='raise', amount=bet_size,
@@ -303,7 +335,7 @@ class GTOBotStrategy(BotStrategy):
             )
         else:
             # Facing a bet
-            if equity >= value_threshold and equity > pot_odds + 0.10:
+            if equity >= value_threshold and equity > pot_odds + _VALUE_RAISE_MARGIN:
                 # Re-raise for value
                 re_raise = min(int(pot * bet_fraction * 1.5), my_chips)
                 re_raise = max(re_raise, min_raise)
@@ -320,7 +352,7 @@ class GTOBotStrategy(BotStrategy):
                     chat_message=_chat('raise'),
                 )
 
-            if equity > pot_odds + 0.08:
+            if equity > pot_odds + _CALL_MARGIN:
                 # Profitable call by equity
                 return AIThought(
                     action='call', amount=0,
@@ -328,7 +360,7 @@ class GTOBotStrategy(BotStrategy):
                     chat_message=_chat('call'),
                 )
 
-            if equity > pot_odds and random.random() < 0.35:
+            if equity > pot_odds and random.random() < _MARGINAL_CALL_PROB:
                 # Marginal call — mixed strategy
                 return AIThought(
                     action='call', amount=0,
@@ -336,9 +368,9 @@ class GTOBotStrategy(BotStrategy):
                     chat_message=_chat('call'),
                 )
 
-            if equity < 0.20 and random.random() < bluff_freq * 0.5:
+            if equity < _SEMI_BLUFF_EQUITY_THRESH and random.random() < bluff_freq * 0.5:
                 # Bluff raise even when facing a bet (semi-bluff territory)
-                bluff_raise = min(int(pot * 0.66), my_chips)
+                bluff_raise = min(int(pot * _WET_BET_FRAC), my_chips)
                 bluff_raise = max(bluff_raise, min_raise)
                 if bluff_raise > to_call and my_chips > to_call:
                     return AIThought(

@@ -92,7 +92,11 @@ export const useGameStore = create<GameStore>((set, get) => ({
   },
 
   connect: () => {
-    const socket = io(BACKEND_URL);
+    const socket = io(BACKEND_URL, {
+      reconnectionDelay: 1000,
+      reconnectionDelayMax: 10000,
+      reconnectionAttempts: Infinity,
+    });
 
     socket.on('connect', () => {
       set({ isConnected: true });
