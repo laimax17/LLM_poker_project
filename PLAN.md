@@ -190,6 +190,25 @@ test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
 
 ---
 
+### P3-6 · 编写并维护大模型部署 Playbook
+**文件**：`PLAN.md` Appendix（已有草稿）→ 最终落地到 `docs/llm-playbook.md`
+**问题**：目前部署流程全靠口耳相传，新成员或生产上线时无标准操作文档。
+**改动**：
+1. 将 Appendix 内容迁移到独立文件 `docs/llm-playbook.md`，并按以下结构完善：
+   - **架构总览**：引擎调用链图、LLM 触发时机说明
+   - **引擎对比表**：rule-based / gto / ollama / qwen-plus / qwen-max 的速度、质量、费用、场景
+   - **方式 A — 本地 Ollama**：安装 → pull 模型 → 配置 `.env` → 启动 Docker → UI 切换 → 健康验证 → 故障排查
+   - **方式 B — 阿里云 DashScope**：申请 Key → 模型选型 → 配置 `.env` → 启动验证 → 故障排查
+   - **运行时热切换**：HTTP API curl 命令速查
+   - **日志排查**：正常 / 异常关键字对照
+   - **环境变量速查表**：5 个变量的默认值和说明
+2. `README.md` 中新增 "AI 引擎配置" 章节，链接到 `docs/llm-playbook.md`
+3. `backend/.env.example` 补充每个变量的注释说明
+
+**验收标准**：新成员按文档从零配置，10 分钟内可跑通 Ollama 或 Qwen 引擎。
+
+---
+
 ## 执行顺序建议
 
 ```
@@ -198,7 +217,7 @@ Week 1:  P1-1 → P1-2 → P1-4 → P1-5   (LLM 和可读性)
 Week 2:  P1-3 → P2-1 → P2-2 → P2-3   (体验提升)
 Week 2:  P2-4 → P2-5 → P2-6           (细节打磨)
 Week 3:  P3-1 → P3-2 → P3-3           (代码质量)
-Week 3:  P3-4 → P3-5                   (基础设施)
+Week 3:  P3-4 → P3-5 → P3-6            (基础设施 + 文档)
 ```
 
 ---
