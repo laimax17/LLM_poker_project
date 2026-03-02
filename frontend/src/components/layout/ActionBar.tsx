@@ -46,6 +46,7 @@ const ActionBar: React.FC<ActionBarProps> = ({
 
   const step = STEPS[stepIdx];
   const currentAmount = parseInt(raiseAmount, 10);
+  const isOverMax = !isNaN(currentAmount) && currentAmount > maxRaise;
 
   // ─── Quick-bet helpers ─────────────────────────────────────────────────────
   const setQuickBet = useCallback((amount: number) => {
@@ -207,18 +208,39 @@ const ActionBar: React.FC<ActionBarProps> = ({
         </button>
 
         {/* Amount input */}
-        <input
-          className="raise-inp"
-          type="number"
-          min={minRaise}
-          max={maxRaise}
-          placeholder={`$${minRaise}`}
-          value={raiseAmount}
-          onChange={e => setRaiseAmount(e.target.value)}
-          disabled={disabled}
-          onKeyDown={e => e.key === 'Enter' && handleRaise()}
-          style={{ width: 90, padding: '10px 10px' }}
-        />
+        <div style={{ position: 'relative' }}>
+          <input
+            className="raise-inp"
+            type="number"
+            min={minRaise}
+            max={maxRaise}
+            placeholder={`$${minRaise}`}
+            value={raiseAmount}
+            onChange={e => setRaiseAmount(e.target.value)}
+            disabled={disabled}
+            onKeyDown={e => e.key === 'Enter' && handleRaise()}
+            style={{
+              width: 90,
+              padding: '10px 10px',
+              borderColor: isOverMax ? '#ff4444' : undefined,
+              outline: isOverMax ? '1px solid #ff4444' : undefined,
+            }}
+          />
+          {isOverMax && (
+            <div style={{
+              position: 'absolute',
+              top: '100%',
+              left: 0,
+              fontSize: 7,
+              color: '#ff4444',
+              fontFamily: 'var(--font-label)',
+              whiteSpace: 'nowrap',
+              marginTop: 2,
+            }}>
+              Max ${maxRaise}
+            </div>
+          )}
+        </div>
 
         {/* Increment */}
         <button className="abtn" style={{ fontSize: 14, padding: '4px 10px', lineHeight: 1 }}

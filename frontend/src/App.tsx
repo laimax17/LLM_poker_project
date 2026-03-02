@@ -31,6 +31,8 @@ function App() {
   } = useGameStore();
 
   const [showMenu, setShowMenu] = useState(false);
+  // Delay "Next Hand" button by 2.5s after hand ends so player can see the result
+  const [showNextHandBtn, setShowNextHandBtn] = useState(false);
 
   useEffect(() => {
     connect();
@@ -44,14 +46,22 @@ function App() {
     setBackendLocale(locale);
   }, [locale, setBackendLocale]);
 
+  // Show "Next Hand" button 2.5s after hand ends so player can read the result
+  const isHandOver = gameState?.state === 'SHOWDOWN' || gameState?.state === 'FINISHED';
+  useEffect(() => {
+    if (!isHandOver) {
+      setShowNextHandBtn(false);
+      return;
+    }
+    const timer = setTimeout(() => setShowNextHandBtn(true), 2500);
+    return () => clearTimeout(timer);
+  }, [isHandOver]);
+
   const isHumanTurn =
     gameState !== null &&
     gameState.state !== 'SHOWDOWN' &&
     gameState.state !== 'FINISHED' &&
     gameState.current_player_idx === 0;
-
-  const isHandOver =
-    gameState?.state === 'SHOWDOWN' || gameState?.state === 'FINISHED';
 
   const handleLanguageChange = (newLocale: 'en' | 'zh') => {
     setLocale(newLocale);
@@ -241,7 +251,7 @@ function App() {
               padding: '10px 0 6px',
               display: 'flex',
               justifyContent: 'center',
-              visibility: isHandOver ? 'visible' : 'hidden',
+              visibility: showNextHandBtn ? 'visible' : 'hidden',
               flexShrink: 0,
             }}>
               <button

@@ -35,6 +35,9 @@ interface GameStore {
   // Bot thoughts (speech bubbles per bot)
   botThoughts: Record<string, BotThought>;
 
+  // Bots currently waiting on LLM response (shows spinner)
+  thinkingBots: Record<string, boolean>;
+
   // Error toast
   errorMessage: string | null;
 
@@ -73,6 +76,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
   isConnected: false,
   gameState: null,
   botThoughts: {},
+  thinkingBots: {},
   errorMessage: null,
   handCount: 0,
   currentAction: null,
@@ -88,7 +92,11 @@ export const useGameStore = create<GameStore>((set, get) => ({
   },
 
   connect: () => {
-    const socket = io(BACKEND_URL);
+    const socket = io(BACKEND_URL, {
+      reconnectionDelay: 1000,
+      reconnectionDelayMax: 10000,
+      reconnectionAttempts: Infinity,
+    });
 
     socket.on('connect', () => {
       set({ isConnected: true });
@@ -142,18 +150,21 @@ export const useGameStore = create<GameStore>((set, get) => ({
     });
 
     socket.on('ai_thought', (data: BotThought) => {
+      // Use a unique token per message to avoid timer cross-fire when two
+      // identical chat strings arrive close together.
+      const token = `${data.player_id}:${Date.now()}`;
       set(state => ({
         botThoughts: {
           ...state.botThoughts,
-          [data.player_id]: data,
+          [data.player_id]: { ...data, _token: token } as BotThought & { _token: string },
         },
       }));
       // Two-step auto-clear: fade at 3.5 s, remove at 4 s.
-      // Guard compares `chat` string so a newer thought is never cleared early.
+      // Guard checks token so a newer thought is never cleared early.
       setTimeout(() => {
         set(state => {
-          const existing = state.botThoughts[data.player_id];
-          if (!existing || existing.chat !== data.chat) return state;
+          const existing = state.botThoughts[data.player_id] as (BotThought & { _token?: string }) | undefined;
+          if (!existing || (existing as { _token?: string })._token !== token) return state;
           return {
             botThoughts: {
               ...state.botThoughts,
@@ -164,8 +175,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
       }, 3500);
       setTimeout(() => {
         set(state => {
-          const existing = state.botThoughts[data.player_id];
-          if (!existing || existing.chat !== data.chat) return state;
+          const existing = state.botThoughts[data.player_id] as (BotThought & { _token?: string }) | undefined;
+          if (!existing || (existing as { _token?: string })._token !== token) return state;
           const updated = { ...state.botThoughts };
           delete updated[data.player_id];
           return { botThoughts: updated };
@@ -191,6 +202,20 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
     socket.on('ai_advice', (data: AICoachAdvice) => {
       set({ coachAdvice: data, isRequestingAdvice: false, showCoach: true });
+    });
+
+    socket.on('ai_thinking', (data: { player_id: string }) => {
+      set(state => ({
+        thinkingBots: { ...state.thinkingBots, [data.player_id]: true },
+      }));
+    });
+
+    socket.on('ai_thinking_done', (data: { player_id: string }) => {
+      set(state => {
+        const updated = { ...state.thinkingBots };
+        delete updated[data.player_id];
+        return { thinkingBots: updated };
+      });
     });
 
     socket.on('llm_status', (data: { status: 'online' | 'offline' }) => {
@@ -273,7 +298,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
   },
 
   closeCoach: () => {
-    set({ showCoach: false });
+    set({ showCoach: false, isRequestingAdvice: false });
   },
 
   setLLMConfig: (config: Partial<LLMConfig>) => {

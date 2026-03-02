@@ -57,16 +57,17 @@ BOT_PROFILES: list[dict[str, str]] = [
 
 # ─── Per-bot thinking delay (seconds) tuned to personality ────────────────────
 BOT_THINK_TIME: dict[str, tuple[float, float]] = {
-    'bot_1': (1.2, 3.0),   # NEON    / shark   — balanced, calculated
-    'bot_2': (2.0, 4.5),   # GRANITE / rock    — slow, deliberate
-    'bot_3': (0.8, 2.0),   # BLAZE   / maniac  — fast, impulsive
-    'bot_4': (1.5, 4.0),   # GLACIER / station — indecisive
-    'bot_5': (1.2, 3.5),   # CIPHER  / tag     — moderate
+    'bot_1': (1.2, 2.5),   # NEON    / shark   — balanced, calculated
+    'bot_2': (1.5, 3.0),   # GRANITE / rock    — slow, deliberate (was 4.5s)
+    'bot_3': (0.6, 1.5),   # BLAZE   / maniac  — fast, impulsive
+    'bot_4': (1.2, 3.0),   # GLACIER / station — indecisive (was 4.0s)
+    'bot_5': (1.0, 2.5),   # CIPHER  / tag     — moderate
 }
 _DEFAULT_THINK_TIME: tuple[float, float] = (1.0, 2.5)
 
 # ─── Global state ─────────────────────────────────────────────────────────────
 engine = PokerEngine()
+_ai_lock = asyncio.Lock()  # Prevents concurrent bot decision loops
 # Per-bot strategy dict (for rule-based mode, each bot has its own personality)
 _bot_strategies: dict[str, BotStrategy] = {}
 # Fallback single strategy (used for GTO/LLM where all bots share one)
@@ -145,60 +146,69 @@ async def broadcast_state() -> None:
 
 async def check_ai_turn() -> None:
     """Drive bot turns until the human must act or the hand ends."""
-    while True:
-        if engine.state.value in ('FINISHED', 'SHOWDOWN'):
-            break
-        try:
-            current_p = engine.players[engine.current_player_idx]
-        except IndexError:
-            break
-
-        if not (current_p.id.startswith('bot_') and current_p.is_active and not current_p.is_all_in):
-            break
-
-        think_lo, think_hi = BOT_THINK_TIME.get(current_p.id, _DEFAULT_THINK_TIME)
-        await asyncio.sleep(random.uniform(think_lo, think_hi))
-        state_for_bot = engine.get_public_game_state(current_p.id)
-
-        strategy = _get_strategy(current_p.id)
-        try:
-            if isinstance(strategy, LLMBotStrategy):
-                decision = await strategy.decide_async(state_for_bot, current_p.id)
-            elif isinstance(strategy, RuleBasedStrategy):
-                decision = strategy.decide(state_for_bot, current_p.id, locale=_locale)
-            else:
-                decision = strategy.decide(state_for_bot, current_p.id)
-        except Exception as exc:
-            logger.error('Strategy.decide failed for %s: %s', current_p.id, exc)
-            decision = AIThought(action='fold', amount=0, thought='error fallback', chat_message='...')
-
-        if decision.chat_message:
-            await sio.emit('ai_thought', {
-                'player_id': current_p.id,
-                'thought': decision.thought,
-                'chat': decision.chat_message,
-            })
-
-        actual_action = decision.action
-        actual_amount = decision.amount
-        try:
-            engine.player_action(current_p.id, decision.action, decision.amount)
-        except Exception as exc:
-            logger.error('engine.player_action error %s (action=%s): %s', current_p.id, decision.action, exc)
-            actual_action = 'fold'
-            actual_amount = 0
+    if _ai_lock.locked():
+        return
+    async with _ai_lock:
+        while True:
+            if engine.state.value in ('FINISHED', 'SHOWDOWN'):
+                break
             try:
-                engine.player_action(current_p.id, 'fold', 0)
-            except Exception:
-                pass
+                current_p = engine.players[engine.current_player_idx]
+            except IndexError:
+                break
 
-        await sio.emit('player_acted', {
-            'player_id': current_p.id,
-            'player_name': current_p.name,
-            'action': actual_action,
-            'amount': actual_amount,
-        })
-        await broadcast_state()
+            if not (current_p.id.startswith('bot_') and current_p.is_active and not current_p.is_all_in):
+                break
+
+            think_lo, think_hi = BOT_THINK_TIME.get(current_p.id, _DEFAULT_THINK_TIME)
+            await asyncio.sleep(random.uniform(think_lo, think_hi))
+            state_for_bot = engine.get_public_game_state(current_p.id)
+
+            strategy = _get_strategy(current_p.id)
+            is_llm_call = isinstance(strategy, LLMBotStrategy) and state_for_bot.get('state') != 'PREFLOP'
+            if is_llm_call:
+                await sio.emit('ai_thinking', {'player_id': current_p.id})
+            try:
+                if isinstance(strategy, LLMBotStrategy):
+                    decision = await strategy.decide_async(state_for_bot, current_p.id)
+                elif isinstance(strategy, RuleBasedStrategy):
+                    decision = strategy.decide(state_for_bot, current_p.id, locale=_locale)
+                else:
+                    decision = strategy.decide(state_for_bot, current_p.id)
+            except Exception as exc:
+                logger.error('Strategy.decide failed for %s: %s', current_p.id, exc)
+                decision = AIThought(action='fold', amount=0, thought='error fallback', chat_message='...')
+            finally:
+                if is_llm_call:
+                    await sio.emit('ai_thinking_done', {'player_id': current_p.id})
+
+            if decision.chat_message:
+                await sio.emit('ai_thought', {
+                    'player_id': current_p.id,
+                    'thought': decision.thought,
+                    'chat': decision.chat_message,
+                })
+
+            actual_action = decision.action
+            actual_amount = decision.amount
+            try:
+                engine.player_action(current_p.id, decision.action, decision.amount)
+            except Exception as exc:
+                logger.error('engine.player_action error %s (action=%s): %s', current_p.id, decision.action, exc)
+                actual_action = 'fold'
+                actual_amount = 0
+                try:
+                    engine.player_action(current_p.id, 'fold', 0)
+                except Exception:
+                    pass
+
+            await sio.emit('player_acted', {
+                'player_id': current_p.id,
+                'player_name': current_p.name,
+                'action': actual_action,
+                'amount': actual_amount,
+            })
+            await broadcast_state()
 
 
 # ─── HTTP endpoints ────────────────────────────────────────────────────────────
@@ -259,7 +269,7 @@ async def player_action(sid: str, data: dict[str, Any]) -> None:
     logger.info('player_action from %s: %s', sid, data)
     try:
         action = data.get('action')
-        amount = int(data.get('amount', 0))
+        amount = max(0, int(data.get('amount', 0)))
         current_player = engine.players[engine.current_player_idx]
         if current_player.id != 'human':
             await sio.emit('error', {'message': 'Not your turn!'}, to=sid)
@@ -311,10 +321,16 @@ async def request_advice(sid: str, data: dict[str, Any]) -> None:
         _rebuild_bot_strategies(req_engine, req_model)
 
     if _coach is None:
+        if _locale == 'zh':
+            _no_llm_body = '请先在 LLM 配置栏选择 Ollama 或 Qwen AI 引擎以使用 AI Coach。'
+            _no_llm_label = '状态'
+        else:
+            _no_llm_body = 'Select an Ollama or Qwen engine in the LLM Config bar to use AI Coach.'
+            _no_llm_label = 'Status'
         await sio.emit('ai_advice', {
             'recommendation': 'CHECK',
-            'body': '请先在 LLM 配置栏选择 Ollama 或 Qwen AI 引擎以使用 AI Coach。',
-            'stats': [{'label': '状态', 'value': 'NO LLM', 'quality': 'bad'}],
+            'body': _no_llm_body,
+            'stats': [{'label': _no_llm_label, 'value': 'NO LLM', 'quality': 'bad'}],
         }, to=sid)
         return
 

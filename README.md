@@ -60,6 +60,24 @@ The following features are planned but not yet enabled:
 - [ ] **Advanced Settings**: Configurable blind structures, starting chips, and difficulty levels.
 - [ ] **Sound Effects**: Audio cues for chips, cards, and turns.
 
+## 🤖 AI 引擎配置
+
+游戏支持五种 AI 引擎，可在游戏内 LLMConfigBar 实时切换：
+
+| 引擎 | 说明 | 需要网络 |
+|------|------|----------|
+| `rule-based` | 5 种人格规则 Bot，开箱即用 | 否 |
+| `gto` | 位置 + 蒙特卡洛 GTO Bot | 否 |
+| `ollama` | 本地 LLM 推理（Qwen/Llama）| 否 |
+| `qwen-plus` | 阿里云 Qwen 云端 API | 是 |
+| `qwen-max` | 阿里云 Qwen Max（最强质量）| 是 |
+
+完整配置步骤（含 Ollama 本地部署和 DashScope 云端配置）请参阅：
+
+**[docs/llm-playbook.md](docs/llm-playbook.md)**
+
+---
+
 ## 🧪 Testing
 
 The project includes unit tests for the poker logic.

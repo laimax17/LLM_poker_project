@@ -16,6 +16,42 @@ from .strategy import BotStrategy
 logger = logging.getLogger(__name__)
 
 
+# ─── Constants ────────────────────────────────────────────────────────────────
+
+# Strength noise (added to hand-strength estimate to simulate imperfect reads)
+_NOISE_BASE: float = 0.12           # base noise magnitude
+_NOISE_LOOSE_FACTOR: float = 0.08   # extra noise for loose personalities (low tightness)
+
+# Bluff sizing as a fraction of the pot
+_BLUFF_BET_FRAC: float = 0.40       # bluff bet when no one has raised (check → bluff)
+_BLUFF_RAISE_FRAC: float = 0.55     # bluff-raise size when facing a bet
+
+# Bluff decision thresholds
+_WEAK_BLUFF_THRESHOLD: float = 0.30  # strength below which bot considers bluffing
+_BLUFF_RAISE_FREQ_MULT: float = 0.60 # multiplier on bluff_freq for bluff-raises
+
+# Calling-station behaviour (loose-passive style)
+_STATION_TIGHTNESS: float = 0.30    # tightness must be below this
+_STATION_AGGRESSION: float = 0.40   # aggression must be below this
+_STATION_CALL_PROB: float = 0.45    # probability of stubborn call when both conditions met
+
+# Bet-sizing thresholds (hand strength → sizing tier)
+_SIZE_STRONG_THRESHOLD: float = 0.85  # above → big value bet
+_SIZE_MEDIUM_THRESHOLD: float = 0.65  # above → medium bet; else small / bluff size
+
+# Pot-fraction bases and aggression scalars for each sizing tier
+_SIZE_STRONG_FRAC_BASE: float = 0.75  # base pot fraction for strong hands
+_SIZE_STRONG_FRAC_AGG: float = 0.25   # aggression adds up to this
+_SIZE_MEDIUM_FRAC_BASE: float = 0.45  # base pot fraction for medium hands
+_SIZE_MEDIUM_FRAC_AGG: float = 0.20
+_SIZE_WEAK_FRAC_BASE: float = 0.30    # base pot fraction for weak / bluff hands
+_SIZE_WEAK_FRAC_AGG: float = 0.15
+
+# Jitter applied to bet amounts so sizing isn't robotic (±15%)
+_BET_JITTER_LO: float = 0.85
+_BET_JITTER_HI: float = 1.15
+
+
 # ─── Personality definitions ──────────────────────────────────────────────────
 
 @dataclass(frozen=True)
@@ -177,7 +213,7 @@ class RuleBasedStrategy(BotStrategy):
 
         strength = self._assess_strength(hand_cards, comm_cards, street)
         # Add noise scaled by personality (loose players have wider variance)
-        noise_range = 0.12 + (1.0 - self._p.tightness) * 0.08
+        noise_range = _NOISE_BASE + (1.0 - self._p.tightness) * _NOISE_LOOSE_FACTOR
         strength = min(1.0, max(0.0, strength + random.uniform(-noise_range, noise_range)))
         logger.debug(
             'RuleBased[%s]: %s street=%s strength=%.2f to_call=%d',
@@ -257,8 +293,8 @@ class RuleBasedStrategy(BotStrategy):
                     chat_message=_chat(p, 'raise', locale),
                 )
             # Bluff with weak hand
-            if strength < 0.30 and random.random() < p.bluff_freq:
-                bluff_size = max(min_raise, int(pot * 0.4))
+            if strength < _WEAK_BLUFF_THRESHOLD and random.random() < p.bluff_freq:
+                bluff_size = max(min_raise, int(pot * _BLUFF_BET_FRAC))
                 bluff_size = min(bluff_size, chips)
                 if bluff_size >= min_raise:
                     return AIThought(
@@ -300,9 +336,9 @@ class RuleBasedStrategy(BotStrategy):
             )
 
         # Weak hand but personality may bluff-raise
-        if random.random() < p.bluff_freq * 0.6:
+        if random.random() < p.bluff_freq * _BLUFF_RAISE_FREQ_MULT:
             if chips >= current_bet + min_raise:
-                bluff_size = max(min_raise, int(pot * 0.55))
+                bluff_size = max(min_raise, int(pot * _BLUFF_RAISE_FRAC))
                 bluff_size = min(bluff_size, chips)
                 return AIThought(
                     action='raise', amount=bluff_size,
@@ -311,7 +347,7 @@ class RuleBasedStrategy(BotStrategy):
                 )
 
         # Calling station special: rarely folds even when weak
-        if p.tightness < 0.3 and p.aggression < 0.4 and random.random() < 0.45:
+        if p.tightness < _STATION_TIGHTNESS and p.aggression < _STATION_AGGRESSION and random.random() < _STATION_CALL_PROB:
             return AIThought(
                 action='call', amount=0,
                 thought=f'[{p.name}] Stubborn call (str={strength:.2f})',
@@ -334,15 +370,15 @@ class RuleBasedStrategy(BotStrategy):
         """Pick a raise amount based on hand strength and personality."""
         p = self._p
         # Base sizing: fraction of pot scaled by strength
-        if strength > 0.85:
-            frac = 0.75 + p.aggression * 0.25   # big value bet
-        elif strength > 0.65:
-            frac = 0.45 + p.aggression * 0.20   # medium bet
+        if strength > _SIZE_STRONG_THRESHOLD:
+            frac = _SIZE_STRONG_FRAC_BASE + p.aggression * _SIZE_STRONG_FRAC_AGG   # big value bet
+        elif strength > _SIZE_MEDIUM_THRESHOLD:
+            frac = _SIZE_MEDIUM_FRAC_BASE + p.aggression * _SIZE_MEDIUM_FRAC_AGG   # medium bet
         else:
-            frac = 0.30 + p.aggression * 0.15   # small bet / bluff sizing
+            frac = _SIZE_WEAK_FRAC_BASE + p.aggression * _SIZE_WEAK_FRAC_AGG       # small bet / bluff sizing
 
         amount = max(min_raise, int(pot * frac))
         # Add some randomness (±20%) so sizing isn't robotic
-        jitter = random.uniform(0.85, 1.15)
+        jitter = random.uniform(_BET_JITTER_LO, _BET_JITTER_HI)
         amount = int(amount * jitter)
         return max(min_raise, min(amount, chips))

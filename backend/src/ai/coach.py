@@ -4,12 +4,32 @@ Returns teaching-style Chinese analysis of the current hand.
 """
 import json
 import logging
-import re
 from typing import Any
 
 from .llm_client import LLMClient
 
 logger = logging.getLogger(__name__)
+
+
+def _extract_json(text: str) -> str | None:
+    """Extract the first complete JSON object from text using bracket counting.
+
+    More robust than a greedy regex: correctly handles nested objects/arrays
+    and ignores any trailing explanation text the LLM may append.
+    """
+    start = text.find('{')
+    if start == -1:
+        return None
+    depth = 0
+    for i, ch in enumerate(text[start:], start):
+        if ch == '{':
+            depth += 1
+        elif ch == '}':
+            depth -= 1
+            if depth == 0:
+                return text[start:i + 1]
+    return None
+
 
 COACH_SYSTEM_PROMPT = (
     '你是一个专业的德州扑克教练，用中文进行教学分析。\n'
@@ -29,7 +49,6 @@ COACH_SYSTEM_PROMPT = (
     'quality 只能是: good, bad, hot, neutral'
 )
 
-JSON_RE = re.compile(r'\{.*\}', re.DOTALL)
 VALID_RECS = frozenset({'FOLD', 'CALL', 'CHECK', 'RAISE'})
 VALID_QUALITIES = frozenset({'good', 'bad', 'hot', 'neutral'})
 
@@ -72,13 +91,13 @@ class AICoach:
         )
 
     def _parse_response(self, raw: str) -> dict[str, Any]:
-        match = JSON_RE.search(raw)
-        if not match:
+        json_str = _extract_json(raw)
+        if not json_str:
             logger.warning('AICoach: no JSON in response, using fallback')
             return self._fallback()
 
         try:
-            data = json.loads(match.group())
+            data = json.loads(json_str)
         except json.JSONDecodeError as exc:
             logger.warning('AICoach: JSON decode error %s, using fallback', exc)
             return self._fallback()
