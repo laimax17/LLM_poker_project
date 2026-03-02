@@ -40,8 +40,8 @@ const PlayerBox: React.FC<PlayerBoxProps> = ({
   const boxStyle: React.CSSProperties = {
     background: 'rgba(10, 9, 0, 0.88)',
     border: '2px solid var(--brown)',
-    padding: '20px 28px',
-    width: 400,
+    padding: '10px 14px',
+    width: 260,
     clipPath: 'var(--clip-sm)',
     opacity: isFolded ? 0.3 : 1,
     flexShrink: 0,
@@ -72,11 +72,11 @@ const PlayerBox: React.FC<PlayerBoxProps> = ({
       {/* Amount label below the stack */}
       <div style={{
         fontFamily: 'var(--font-ui)',
-        fontSize: 14,
+        fontSize: 12,
         color: 'var(--gold)',
         background: '#1a0e00',
         border: '1px solid var(--gold-d)',
-        padding: '4px 10px',
+        padding: '2px 6px',
         whiteSpace: 'nowrap',
       }}>
         <span
@@ -106,8 +106,8 @@ const PlayerBox: React.FC<PlayerBoxProps> = ({
             right: 5,
             background: 'var(--gold)',
             color: '#000',
-            fontSize: 14,
-            padding: '4px 10px',
+            fontSize: 11,
+            padding: '2px 6px',
             fontFamily: 'var(--font-ui)',
             lineHeight: 1.4,
             zIndex: 2,
@@ -121,9 +121,9 @@ const PlayerBox: React.FC<PlayerBoxProps> = ({
           {/* Bot name */}
           <div style={{
             fontFamily: 'var(--font-ui)',
-            fontSize: 22,
+            fontSize: 14,
             color: 'var(--gold)',
-            marginBottom: 6,
+            marginBottom: 4,
             overflow: 'hidden',
             textOverflow: 'ellipsis',
             whiteSpace: 'nowrap',
@@ -133,9 +133,9 @@ const PlayerBox: React.FC<PlayerBoxProps> = ({
 
           {/* Chips — key replays numUpdate animation when chips change */}
           <div style={{
-            fontSize: 16,
+            fontSize: 11,
             color: 'var(--gold-l)',
-            marginBottom: 5,
+            marginBottom: 4,
             fontFamily: 'var(--font-label)',
           }}>
             <span
@@ -148,7 +148,7 @@ const PlayerBox: React.FC<PlayerBoxProps> = ({
 
           {/* Status */}
           <div style={{
-            fontSize: 16,
+            fontSize: 10,
             color: status.color,
             fontFamily: 'var(--font-label)',
           }}>
@@ -156,7 +156,7 @@ const PlayerBox: React.FC<PlayerBoxProps> = ({
           </div>
 
           {/* Cards (face-down or face-up at showdown) */}
-          <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
+          <div style={{ display: 'flex', gap: 6, marginTop: 6 }}>
             {showCards ? (
               <>
                 <Card
