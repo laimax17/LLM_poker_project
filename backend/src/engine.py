@@ -267,7 +267,7 @@ class PokerEngine:
             self._next_street()
         else:
             steps = 0
-            while steps <= len(self.players):
+            while steps < len(self.players):
                 self.current_player_idx = (self.current_player_idx + 1) % len(self.players)
                 next_p = self.players[self.current_player_idx]
                 if next_p.is_active and not next_p.is_all_in:
@@ -283,10 +283,12 @@ class PokerEngine:
             p.has_acted = False
             
         self.current_player_idx = (self.dealer_idx + 1) % len(self.players)
+        steps = 0
         while not (self.players[self.current_player_idx].is_active and not self.players[self.current_player_idx].is_all_in):
-             self.current_player_idx = (self.current_player_idx + 1) % len(self.players)
-             if all(p.is_all_in or not p.is_active for p in self.players):
-                 break
+            self.current_player_idx = (self.current_player_idx + 1) % len(self.players)
+            steps += 1
+            if steps >= len(self.players) or all(p.is_all_in or not p.is_active for p in self.players):
+                break
 
         if self.state == GameState.PREFLOP:
             self.state = GameState.FLOP

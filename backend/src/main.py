@@ -67,6 +67,7 @@ _DEFAULT_THINK_TIME: tuple[float, float] = (1.0, 2.5)
 
 # ─── Global state ─────────────────────────────────────────────────────────────
 engine = PokerEngine()
+_ai_lock = asyncio.Lock()  # Prevents concurrent bot decision loops
 # Per-bot strategy dict (for rule-based mode, each bot has its own personality)
 _bot_strategies: dict[str, BotStrategy] = {}
 # Fallback single strategy (used for GTO/LLM where all bots share one)
@@ -145,60 +146,63 @@ async def broadcast_state() -> None:
 
 async def check_ai_turn() -> None:
     """Drive bot turns until the human must act or the hand ends."""
-    while True:
-        if engine.state.value in ('FINISHED', 'SHOWDOWN'):
-            break
-        try:
-            current_p = engine.players[engine.current_player_idx]
-        except IndexError:
-            break
-
-        if not (current_p.id.startswith('bot_') and current_p.is_active and not current_p.is_all_in):
-            break
-
-        think_lo, think_hi = BOT_THINK_TIME.get(current_p.id, _DEFAULT_THINK_TIME)
-        await asyncio.sleep(random.uniform(think_lo, think_hi))
-        state_for_bot = engine.get_public_game_state(current_p.id)
-
-        strategy = _get_strategy(current_p.id)
-        try:
-            if isinstance(strategy, LLMBotStrategy):
-                decision = await strategy.decide_async(state_for_bot, current_p.id)
-            elif isinstance(strategy, RuleBasedStrategy):
-                decision = strategy.decide(state_for_bot, current_p.id, locale=_locale)
-            else:
-                decision = strategy.decide(state_for_bot, current_p.id)
-        except Exception as exc:
-            logger.error('Strategy.decide failed for %s: %s', current_p.id, exc)
-            decision = AIThought(action='fold', amount=0, thought='error fallback', chat_message='...')
-
-        if decision.chat_message:
-            await sio.emit('ai_thought', {
-                'player_id': current_p.id,
-                'thought': decision.thought,
-                'chat': decision.chat_message,
-            })
-
-        actual_action = decision.action
-        actual_amount = decision.amount
-        try:
-            engine.player_action(current_p.id, decision.action, decision.amount)
-        except Exception as exc:
-            logger.error('engine.player_action error %s (action=%s): %s', current_p.id, decision.action, exc)
-            actual_action = 'fold'
-            actual_amount = 0
+    if _ai_lock.locked():
+        return
+    async with _ai_lock:
+        while True:
+            if engine.state.value in ('FINISHED', 'SHOWDOWN'):
+                break
             try:
-                engine.player_action(current_p.id, 'fold', 0)
-            except Exception:
-                pass
+                current_p = engine.players[engine.current_player_idx]
+            except IndexError:
+                break
 
-        await sio.emit('player_acted', {
-            'player_id': current_p.id,
-            'player_name': current_p.name,
-            'action': actual_action,
-            'amount': actual_amount,
-        })
-        await broadcast_state()
+            if not (current_p.id.startswith('bot_') and current_p.is_active and not current_p.is_all_in):
+                break
+
+            think_lo, think_hi = BOT_THINK_TIME.get(current_p.id, _DEFAULT_THINK_TIME)
+            await asyncio.sleep(random.uniform(think_lo, think_hi))
+            state_for_bot = engine.get_public_game_state(current_p.id)
+
+            strategy = _get_strategy(current_p.id)
+            try:
+                if isinstance(strategy, LLMBotStrategy):
+                    decision = await strategy.decide_async(state_for_bot, current_p.id)
+                elif isinstance(strategy, RuleBasedStrategy):
+                    decision = strategy.decide(state_for_bot, current_p.id, locale=_locale)
+                else:
+                    decision = strategy.decide(state_for_bot, current_p.id)
+            except Exception as exc:
+                logger.error('Strategy.decide failed for %s: %s', current_p.id, exc)
+                decision = AIThought(action='fold', amount=0, thought='error fallback', chat_message='...')
+
+            if decision.chat_message:
+                await sio.emit('ai_thought', {
+                    'player_id': current_p.id,
+                    'thought': decision.thought,
+                    'chat': decision.chat_message,
+                })
+
+            actual_action = decision.action
+            actual_amount = decision.amount
+            try:
+                engine.player_action(current_p.id, decision.action, decision.amount)
+            except Exception as exc:
+                logger.error('engine.player_action error %s (action=%s): %s', current_p.id, decision.action, exc)
+                actual_action = 'fold'
+                actual_amount = 0
+                try:
+                    engine.player_action(current_p.id, 'fold', 0)
+                except Exception:
+                    pass
+
+            await sio.emit('player_acted', {
+                'player_id': current_p.id,
+                'player_name': current_p.name,
+                'action': actual_action,
+                'amount': actual_amount,
+            })
+            await broadcast_state()
 
 
 # ─── HTTP endpoints ────────────────────────────────────────────────────────────
@@ -259,7 +263,7 @@ async def player_action(sid: str, data: dict[str, Any]) -> None:
     logger.info('player_action from %s: %s', sid, data)
     try:
         action = data.get('action')
-        amount = int(data.get('amount', 0))
+        amount = max(0, int(data.get('amount', 0)))
         current_player = engine.players[engine.current_player_idx]
         if current_player.id != 'human':
             await sio.emit('error', {'message': 'Not your turn!'}, to=sid)
