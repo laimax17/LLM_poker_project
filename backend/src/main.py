@@ -97,20 +97,21 @@ def _build_strategy(
         return LLMBotStrategy(client), AICoach(client)
     if engine_name == 'gto':
         return GTOBotStrategy(), GTOCoach()
-    # 'rule-based' (default): bots use heuristics, human still gets GTO hints
-    return RuleBasedStrategy(), GTOCoach()
+    # 'rule-based' (default): bots use GTO+personality strategy, human gets GTO coach hints
+    return GTOBotStrategy(), GTOCoach()
 
 
 def _rebuild_bot_strategies(engine_name: str, model: str) -> None:
     """Rebuild the per-bot strategy dict.
 
-    For rule-based: each bot gets its own RuleBasedStrategy with a unique personality.
-    For GTO/LLM: all bots share the same _strategy instance (no per-bot dict needed).
+    For rule-based and gto: each bot gets its own GTOBotStrategy with a unique personality,
+    combining GTO-optimal math with distinct character via personality modifiers.
+    For LLM: all bots share the same LLMBotStrategy instance (no per-bot dict needed).
     """
     global _bot_strategies
-    if engine_name == 'rule-based':
+    if engine_name in ('rule-based', 'gto'):
         _bot_strategies = {
-            prof['id']: RuleBasedStrategy(personality=prof['personality'])
+            prof['id']: GTOBotStrategy(personality=prof['personality'])
             for prof in BOT_PROFILES
         }
     else:
@@ -171,7 +172,7 @@ async def check_ai_turn() -> None:
             try:
                 if isinstance(strategy, LLMBotStrategy):
                     decision = await strategy.decide_async(state_for_bot, current_p.id)
-                elif isinstance(strategy, RuleBasedStrategy):
+                elif isinstance(strategy, (RuleBasedStrategy, GTOBotStrategy)):
                     decision = strategy.decide(state_for_bot, current_p.id, locale=_locale)
                 else:
                     decision = strategy.decide(state_for_bot, current_p.id)
