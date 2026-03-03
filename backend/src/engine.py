@@ -71,6 +71,24 @@ class HandEvaluator:
         return best_rank, best_tiebreakers
 
     @staticmethod
+    def best_five(cards: List[Card]) -> List[Card]:
+        """Return the 5 cards that form the best hand from the given cards."""
+        import itertools
+        best_rank = HandRank.HIGH_CARD
+        best_tiebreakers: List[int] = []
+        best_combo: List[Card] = list(cards[:5])
+        for combo in itertools.combinations(cards, 5):
+            combo_list = sorted(list(combo), key=lambda c: c.rank.value, reverse=True)
+            rank, tiebreakers = HandEvaluator._evaluate_five(combo_list)
+            if rank.value > best_rank.value or (
+                rank.value == best_rank.value and tiebreakers > best_tiebreakers
+            ):
+                best_rank = rank
+                best_tiebreakers = tiebreakers
+                best_combo = combo_list
+        return best_combo
+
+    @staticmethod
     def _evaluate_five(cards: List[Card]) -> Tuple[HandRank, List[int]]:
         ranks = [c.rank.value for c in cards]
         suits = [c.suit for c in cards]
@@ -168,6 +186,7 @@ class PokerEngine:
         self.state = GameState.PREFLOP
         self.winners = []
         self.winning_hand_rank = ""
+        self.winning_cards: List[Card] = []
 
         for p in self.players:
             p.hand = []
@@ -331,6 +350,7 @@ class PokerEngine:
         self.state = GameState.SHOWDOWN
         self.winners = []
         self.winning_hand_rank = ""
+        self.winning_cards = []
 
         if winner_by_fold:
             winner_by_fold.chips += self.pot
@@ -360,6 +380,7 @@ class PokerEngine:
             
             self.winners = [w.id for w in winners_list]
             self.winning_hand_rank = best[1].name.replace("_", " ").title()
+            self.winning_cards = HandEvaluator.best_five(best[0].hand + self.community_cards)
 
         self.state = GameState.FINISHED
 
@@ -377,7 +398,8 @@ class PokerEngine:
             "max_raises_per_street": self.max_raises_per_street,
             "can_raise": self.raise_count < self.max_raises_per_street,
             "winners": getattr(self, "winners", []),
-            "winning_hand": getattr(self, "winning_hand_rank", "")
+            "winning_hand": getattr(self, "winning_hand_rank", ""),
+            "winning_cards": [c.to_dict() for c in getattr(self, "winning_cards", [])]
         }
 
         # Reveal hands at a real showdown: multiple players went to showdown (not fold-out)

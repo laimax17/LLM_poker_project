@@ -11,6 +11,11 @@ interface PlayerBoxProps {
   isCurrentTurn: boolean;
   chipBubbleSide: 'right' | 'left';
   badge?: string;   // 'BTN' | 'SB' | 'BB' | 'UTG' | 'HJ' | 'CO'
+  winningCards?: CardType[];
+}
+
+function isWinCard(card: CardType, winningCards?: CardType[]): boolean {
+  return winningCards?.some(wc => wc.rank === card.rank && wc.suit === card.suit) ?? false;
 }
 
 function getStatusText(
@@ -30,6 +35,7 @@ const PlayerBox: React.FC<PlayerBoxProps> = ({
   isCurrentTurn,
   chipBubbleSide,
   badge,
+  winningCards,
 }) => {
   const { t } = useT();
   const isFolded = !player.is_active;
@@ -175,18 +181,20 @@ const PlayerBox: React.FC<PlayerBoxProps> = ({
           <div style={{ display: 'flex', gap: 6, marginTop: 6 }}>
             {showCards ? (
               <>
-                <Card
-                  size="md"
-                  variant="face-up"
-                  rank={(player.hand[0] as CardType).rank}
-                  suit={(player.hand[0] as CardType).suit}
-                />
-                <Card
-                  size="md"
-                  variant="face-up"
-                  rank={(player.hand[1] as CardType).rank}
-                  suit={(player.hand[1] as CardType).suit}
-                />
+                {[player.hand[0] as CardType, player.hand[1] as CardType].map((card, i) => {
+                  const win = isWinCard(card, winningCards);
+                  return (
+                    <Card
+                      key={i}
+                      size="md"
+                      variant="face-up"
+                      rank={card.rank}
+                      suit={card.suit}
+                      glow={win ? 'win' : 'none'}
+                      style={win ? { animation: 'winCardPulse 1.1s ease-in-out infinite' } : undefined}
+                    />
+                  );
+                })}
               </>
             ) : (
               <>

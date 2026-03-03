@@ -7,9 +7,14 @@ interface HoleCardsProps {
   cards: (CardType | null)[];
   isHumanTurn: boolean; // Fix 7: show red glow only when it's the human's turn to act
   handCount: number;    // Changes every new hand → triggers re-animation via key
+  winningCards?: CardType[];
 }
 
-const HoleCards: React.FC<HoleCardsProps> = ({ cards, isHumanTurn, handCount }) => {
+function isWinCard(card: CardType, winningCards?: CardType[]): boolean {
+  return winningCards?.some(wc => wc.rank === card.rank && wc.suit === card.suit) ?? false;
+}
+
+const HoleCards: React.FC<HoleCardsProps> = ({ cards, isHumanTurn, handCount, winningCards }) => {
   const { t } = useT();
   return (
     <div style={{
@@ -36,21 +41,25 @@ const HoleCards: React.FC<HoleCardsProps> = ({ cards, isHumanTurn, handCount }) 
 
       {/* Two hole cards */}
       <div style={{ display: 'flex', gap: 12 }}>
-        {cards.slice(0, 2).map((card, i) =>
-          card ? (
+        {cards.slice(0, 2).map((card, i) => {
+          if (!card) return <Card key={`${handCount}-${i}`} size="md" variant="face-down" />;
+          const win = isWinCard(card, winningCards);
+          return (
             <Card
               key={`${handCount}-${i}`}
               size="md"
               variant="face-up"
               rank={card.rank}
               suit={card.suit}
-              glow={isHumanTurn ? 'red' : 'none'}
-              style={{ animation: `cardDeal 0.4s ease-out ${i * 110}ms both` }}
+              glow={win ? 'win' : isHumanTurn ? 'red' : 'none'}
+              style={{
+                animation: win
+                  ? `cardDeal 0.4s ease-out ${i * 110}ms both, winCardPulse 1.1s 0.6s ease-in-out infinite`
+                  : `cardDeal 0.4s ease-out ${i * 110}ms both`,
+              }}
             />
-          ) : (
-            <Card key={`${handCount}-${i}`} size="md" variant="face-down" />
-          )
-        )}
+          );
+        })}
       </div>
     </div>
   );

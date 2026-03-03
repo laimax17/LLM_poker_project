@@ -2,7 +2,7 @@ import React from 'react';
 import { rankToDisplay, suitToSymbol, isRedSuit } from '../../utils/cardDisplay';
 
 export type CardSize = 'lg' | 'md' | 'sm' | 'xs';
-export type CardGlow = 'gold' | 'red' | 'none';
+export type CardGlow = 'gold' | 'red' | 'win' | 'none';
 export type CardVariant = 'face-up' | 'face-down' | 'placeholder';
 
 interface CardProps {
@@ -76,6 +76,7 @@ function getBoxShadow(size: CardSize, glow: CardGlow, variant: CardVariant): str
   const base = SIZES[size].shadow;
   if (glow === 'gold') return `${base}, 0 0 18px rgba(200,160,64,0.55)`;
   if (glow === 'red')  return `${base}, 0 0 16px rgba(204,17,17,0.4)`;
+  if (glow === 'win')  return `${base}, 0 0 10px rgba(0, 220, 160, 0.45)`;
   return base;
 }
 
@@ -84,6 +85,7 @@ function getBorderColor(glow: CardGlow, variant: CardVariant): string {
   if (variant === 'placeholder') return 'var(--card-back-border)';
   if (glow === 'gold') return 'var(--gold)';
   if (glow === 'red')  return 'var(--red)';
+  if (glow === 'win')  return '#00dca0';
   return 'var(--card-border)';
 }
 
