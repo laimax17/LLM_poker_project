@@ -153,9 +153,13 @@ class PokerEngine:
         self.players.append(Player(player_id, name, chips))
 
     def start_hand(self):
-        # Rotate dealer
+        # Rotate dealer, skipping eliminated players (chips == 0)
         self.dealer_idx = (self.dealer_idx + 1) % len(self.players)
-        
+        steps = 0
+        while self.players[self.dealer_idx].chips == 0 and steps < len(self.players):
+            self.dealer_idx = (self.dealer_idx + 1) % len(self.players)
+            steps += 1
+
         self.reset_deck()
         self.community_cards = []
         self.pot = 0
@@ -164,14 +168,14 @@ class PokerEngine:
         self.state = GameState.PREFLOP
         self.winners = []
         self.winning_hand_rank = ""
-        
+
         for p in self.players:
             p.hand = []
             p.is_active = True if p.chips > 0 else False
             p.current_bet = 0
             p.is_all_in = False
             p.has_acted = False
-        
+
         active_count = sum(1 for p in self.players if p.is_active)
         if active_count < 2:
             raise ValueError("Not enough players")
@@ -181,14 +185,25 @@ class PokerEngine:
                 if p.is_active:
                     p.hand.append(self.deck.pop())
 
+        # Find first ACTIVE player after dealer for SB (skip eliminated seats)
         sb_idx = (self.dealer_idx + 1) % len(self.players)
-        bb_idx = (self.dealer_idx + 2) % len(self.players)
-        
+        steps = 0
+        while not self.players[sb_idx].is_active and steps < len(self.players):
+            sb_idx = (sb_idx + 1) % len(self.players)
+            steps += 1
+
+        # Find first ACTIVE player after SB for BB (skip eliminated seats)
+        bb_idx = (sb_idx + 1) % len(self.players)
+        steps = 0
+        while not self.players[bb_idx].is_active and steps < len(self.players):
+            bb_idx = (bb_idx + 1) % len(self.players)
+            steps += 1
+
         self._place_bet_logic(self.players[sb_idx], self.small_blind)
         self._place_bet_logic(self.players[bb_idx], self.big_blind)
-        
-        self.current_player_idx = (self.dealer_idx + 3) % len(self.players)
-        # Skip all-in or inactive players
+
+        # First to act preflop: first active non-all-in player after BB
+        self.current_player_idx = (bb_idx + 1) % len(self.players)
         steps = 0
         while not (self.players[self.current_player_idx].is_active and not self.players[self.current_player_idx].is_all_in) and steps < len(self.players):
             self.current_player_idx = (self.current_player_idx + 1) % len(self.players)
