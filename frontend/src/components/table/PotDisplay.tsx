@@ -9,19 +9,31 @@ interface PotDisplayProps {
 
 const PotDisplay: React.FC<PotDisplayProps> = ({ pot, street }) => {
   const { t } = useT();
-  // Track whether the pot just grew so we can apply the glow animation
   const prevPot = useRef(pot);
   const [glowing, setGlowing] = useState(false);
+  // When pot drops to 0 (winner awarded), briefly show old value with chipCollect animation
+  const [collecting, setCollecting] = useState(false);
+  const [collectingAmount, setCollectingAmount] = useState(0);
 
   useEffect(() => {
+    if (pot === 0 && prevPot.current > 0) {
+      // Pot was just awarded — animate chips flying away before disappearing
+      setCollectingAmount(prevPot.current);
+      setCollecting(true);
+      const timer = setTimeout(() => setCollecting(false), 550);
+      prevPot.current = 0;
+      return () => clearTimeout(timer);
+    }
     if (pot > prevPot.current) {
       setGlowing(true);
-      const t = setTimeout(() => setGlowing(false), 600);
+      const timer = setTimeout(() => setGlowing(false), 600);
       prevPot.current = pot;
-      return () => clearTimeout(t);
+      return () => clearTimeout(timer);
     }
     prevPot.current = pot;
   }, [pot]);
+
+  const displayPot = collecting ? collectingAmount : pot;
 
   return (
     <div style={{ textAlign: 'center' }}>
@@ -36,21 +48,23 @@ const PotDisplay: React.FC<PotDisplayProps> = ({ pot, street }) => {
         {street}
       </div>
 
-      {/* Chip stack visual — key forces remount+animation on every pot change */}
+      {/* Chip stack visual */}
       <div
         style={{
           display: 'flex',
           justifyContent: 'center',
           marginBottom: 8,
-          minHeight: 40,        // reserve space so layout doesn't jump at 0
+          minHeight: 40,
           alignItems: 'flex-end',
-          animation: glowing ? 'chipGlow 0.6s ease-out' : 'none',
+          animation: collecting
+            ? 'chipCollect 0.5s ease-in forwards'
+            : glowing ? 'chipGlow 0.6s ease-out' : 'none',
         }}
       >
-        <ChipStack key={pot} amount={pot} size="md" />
+        <ChipStack key={displayPot} amount={displayPot} size="md" />
       </div>
 
-      {/* Pot amount text */}
+      {/* Pot amount text — fades out during collection */}
       <div style={{
         fontSize: 10,
         color: 'var(--gold-l)',
@@ -58,6 +72,8 @@ const PotDisplay: React.FC<PotDisplayProps> = ({ pot, street }) => {
         textShadow: '0 0 6px var(--gold)',
         fontFamily: 'var(--font-label)',
         whiteSpace: 'nowrap',
+        opacity: collecting ? 0 : 1,
+        transition: collecting ? 'opacity 0.3s ease' : 'none',
       }}>
         {t('pot.label')}{' '}
         <span

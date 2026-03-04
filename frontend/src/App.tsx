@@ -27,6 +27,7 @@ function App() {
     setLocale: setBackendLocale,
     errorMessage,
     handCount,
+    actionInFlight,
     isGameOver: isPlayerEliminated,
   } = useGameStore();
 
@@ -242,7 +243,7 @@ function App() {
               onAction={sendAction}
               onAskAI={requestAdvice}
               isRequestingAdvice={isRequestingAdvice}
-              disabled={!isHumanTurn}
+              disabled={!isHumanTurn || actionInFlight}
               showCoach={showCoach}
             />
 
@@ -270,6 +271,40 @@ function App() {
           </>
         )}
       </main>
+
+      {/* ─── Disconnect overlay — covers table when socket lost during gameplay ─── */}
+      {gameState && !isConnected && (
+        <div style={{
+          position: 'fixed',
+          inset: 0,
+          background: 'rgba(0,0,0,0.75)',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1800,
+          gap: 14,
+          pointerEvents: 'none',
+        }}>
+          <div style={{
+            fontFamily: 'var(--font-ui)',
+            fontSize: 20,
+            color: '#cc4444',
+            letterSpacing: 4,
+            animation: 'blink 1s steps(1) infinite',
+          }}>
+            DISCONNECTED
+          </div>
+          <div style={{
+            fontFamily: 'var(--font-label)',
+            fontSize: 8,
+            color: 'var(--gold-d)',
+            letterSpacing: 2,
+          }}>
+            RECONNECTING...
+          </div>
+        </div>
+      )}
 
       {/* ─── Error Toast ─── */}
       {errorMessage && <ToastNotification message={errorMessage} />}

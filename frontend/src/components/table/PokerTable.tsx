@@ -56,6 +56,15 @@ const PokerTable: React.FC<PokerTableProps> = ({ gameState, handCount }) => {
 
   // Floating action announcement from store
   const currentAction = useGameStore(s => s.currentAction);
+  // actionInFlight: human sent an action but server hasn't responded yet
+  const actionInFlight = useGameStore(s => s.actionInFlight);
+
+  // isActiveHumanTurn: true only while human must still act (stops blink immediately on click)
+  const isActiveHumanTurn =
+    current_player_idx === 0 &&
+    state !== 'SHOWDOWN' &&
+    state !== 'FINISHED' &&
+    !actionInFlight;
 
   // Track dealing/revealing state for DealerBadge
   const [isDealing, setIsDealing] = React.useState(false);
@@ -202,11 +211,7 @@ const PokerTable: React.FC<PokerTableProps> = ({ gameState, handCount }) => {
             <HoleCards
               cards={humanPlayer.hand}
               handCount={handCount}
-              isHumanTurn={
-                current_player_idx === 0 &&
-                state !== 'SHOWDOWN' &&
-                state !== 'FINISHED'
-              }
+              isHumanTurn={isActiveHumanTurn}
               winningCards={isActualShowdown && gameState.winners.includes(humanPlayer.id) ? winning_cards : undefined}
             />
           )}
@@ -223,11 +228,7 @@ const PokerTable: React.FC<PokerTableProps> = ({ gameState, handCount }) => {
                 dealerIdx={effectiveDealerIdx}
                 playerIdx={0}
                 totalPlayers={totalPlayers}
-                isHumanTurn={
-                  current_player_idx === 0 &&
-                  state !== 'SHOWDOWN' &&
-                  state !== 'FINISHED'
-                }
+                isHumanTurn={isActiveHumanTurn}
               />
             </div>
           )}
@@ -246,7 +247,9 @@ const PokerTable: React.FC<PokerTableProps> = ({ gameState, handCount }) => {
               .map(id => players.find(p => p.id === id)?.name ?? id)
               .join(' & ');
             return (
-              <div style={{
+              <div
+                key={gameState.winners.join('-')}
+                style={{
                 position: 'absolute',
                 top: '30%',
                 left: '50%',
