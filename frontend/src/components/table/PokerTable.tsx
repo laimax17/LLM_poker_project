@@ -9,6 +9,7 @@ import DealerBadge from './DealerBadge';
 import ActionAnnouncement from './ActionAnnouncement';
 import { useGameStore } from '../../store/useGameStore';
 import { useT } from '../../i18n/I18nContext';
+import { useIsMobile } from '../../hooks/useIsMobile';
 
 interface PokerTableProps {
   gameState: GameState;
@@ -35,6 +36,7 @@ function getBadge(
 
 const PokerTable: React.FC<PokerTableProps> = ({ gameState, handCount }) => {
   const { t } = useT();
+  const isMobile = useIsMobile();
   const { players, community_cards, pot, state, current_player_idx, winning_cards } = gameState;
 
   // At a real showdown (not fold-out), we have winning_cards to highlight
@@ -142,11 +144,11 @@ const PokerTable: React.FC<PokerTableProps> = ({ gameState, handCount }) => {
           {/* Left bots (3) */}
           <div style={{
             position: 'absolute',
-            left: 16,
-            top: 28,
+            left: isMobile ? 6 : 16,
+            top: isMobile ? 16 : 28,
             display: 'flex',
             flexDirection: 'column',
-            gap: 20,
+            gap: isMobile ? 6 : 20,
           }}>
             {leftBots.map((bot, i) => {
               const playerIdx = i + 1; // bot 0→idx1, bot 1→idx2, bot 2→idx3
@@ -158,6 +160,7 @@ const PokerTable: React.FC<PokerTableProps> = ({ gameState, handCount }) => {
                   chipBubbleSide="right"
                   badge={getBadge(playerIdx, effectiveDealerIdx, totalPlayers)}
                   winningCards={isActualShowdown && gameState.winners.includes(bot.id) ? winning_cards : undefined}
+                  compact={isMobile}
                 />
               );
             })}
@@ -166,11 +169,11 @@ const PokerTable: React.FC<PokerTableProps> = ({ gameState, handCount }) => {
           {/* Right bots (2) */}
           <div style={{
             position: 'absolute',
-            right: 16,
-            top: 28,
+            right: isMobile ? 6 : 16,
+            top: isMobile ? 16 : 28,
             display: 'flex',
             flexDirection: 'column',
-            gap: 20,
+            gap: isMobile ? 6 : 20,
             alignItems: 'flex-end',
           }}>
             {rightBots.map((bot, i) => {
@@ -183,6 +186,7 @@ const PokerTable: React.FC<PokerTableProps> = ({ gameState, handCount }) => {
                   chipBubbleSide="left"
                   badge={getBadge(playerIdx, effectiveDealerIdx, totalPlayers)}
                   winningCards={isActualShowdown && gameState.winners.includes(bot.id) ? winning_cards : undefined}
+                  compact={isMobile}
                 />
               );
             })}
@@ -220,8 +224,8 @@ const PokerTable: React.FC<PokerTableProps> = ({ gameState, handCount }) => {
           {humanPlayer && (
             <div style={{
               position: 'absolute',
-              bottom: 20,
-              left: 'calc(50% + 90px)',
+              bottom: isMobile ? 10 : 20,
+              left: isMobile ? 'calc(50% + 68px)' : 'calc(50% + 90px)',
             }}>
               <HumanPanel
                 player={humanPlayer}

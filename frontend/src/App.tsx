@@ -439,6 +439,28 @@ function App() {
         </div>
       )}
 
+      {/* ─── Portrait Rotation Prompt (mobile only, CSS-driven) ─── */}
+      <div className="portrait-overlay">
+        <div style={{
+          fontFamily: 'var(--font-ui)',
+          fontSize: 20,
+          color: 'var(--gold)',
+          letterSpacing: 3,
+          marginBottom: 16,
+        }}>
+          ↺
+        </div>
+        <div style={{
+          fontFamily: 'var(--font-label)',
+          fontSize: 8,
+          color: 'var(--gold-d)',
+          letterSpacing: 2,
+          textAlign: 'center',
+        }}>
+          ROTATE TO LANDSCAPE
+        </div>
+      </div>
+
       {/* ─── AI Coach Modal (always rendered at root level) ─── */}
       {showCoach && (
         <div

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import type { GameState } from '../../types';
 import { useT } from '../../i18n/I18nContext';
+import { useIsMobile } from '../../hooks/useIsMobile';
 
 interface ActionBarProps {
   gameState: GameState;
@@ -32,8 +33,10 @@ const ActionBar: React.FC<ActionBarProps> = ({
   showCoach,
 }) => {
   const { t } = useT();
+  const isMobile = useIsMobile();
   const [raiseAmount, setRaiseAmount] = useState<string>('');
   const [stepIdx, setStepIdx] = useState(2); // default step = STEPS[2] = 10
+  const [showRaiseSheet, setShowRaiseSheet] = useState(false);
 
   const human = gameState.players[0];
   const toCall = Math.max(0, gameState.current_bet - (human?.current_bet ?? 0));
@@ -65,6 +68,7 @@ const ActionBar: React.FC<ActionBarProps> = ({
     const clamped = clamp(amt, minRaise, maxRaise);
     onAction('raise', clamped);
     setRaiseAmount('');
+    setShowRaiseSheet(false);
   }
 
   // ─── Keyboard shortcuts ────────────────────────────────────────────────────
@@ -171,121 +175,238 @@ const ActionBar: React.FC<ActionBarProps> = ({
 
       </div>
 
-      {/* ══════ Row 2 — Raise controls (fixed height slot, hidden when !canRaise) ══════ */}
-      {/*
-        Always takes up the same vertical space via height + visibility.
-        This is the key fix: the table above is never pushed around by this row appearing/disappearing.
-      */}
-      <div style={{
-        display: 'flex',
-        gap: 8,
-        justifyContent: 'center',
-        alignItems: 'center',
-        height: 46,
-        visibility: canRaise ? 'visible' : 'hidden',
-        flexWrap: 'nowrap',   // never wrap — width clips instead
-        overflow: 'hidden',
-      }}>
-
-        {/* Quick-bet buttons */}
-        <button className="abtn" style={smBtn} disabled={disabled}
-          onClick={() => setQuickBet(Math.round(gameState.pot / 2))}>
-          {t('bet.halfPot')}
-        </button>
-        <button className="abtn" style={smBtn} disabled={disabled}
-          onClick={() => setQuickBet(gameState.pot)}>
-          {t('bet.pot')}
-        </button>
-        <button className="abtn" style={smBtn} disabled={disabled}
-          onClick={() => setQuickBet(40)}>
-          {t('bet.2xbb')}
-        </button>
-
-        {/* Decrement */}
-        <button className="abtn" style={{ fontSize: 14, padding: '4px 10px', lineHeight: 1 }}
-          disabled={disabled} onClick={() => adjustAmount(-step)}>
-          ▼
-        </button>
-
-        {/* Amount input */}
-        <div style={{ position: 'relative' }}>
-          <input
-            className="raise-inp"
-            type="number"
-            min={minRaise}
-            max={maxRaise}
-            placeholder={`$${minRaise}`}
-            value={raiseAmount}
-            onChange={e => setRaiseAmount(e.target.value)}
+      {/* ══════ Row 2 — Raise controls ══════ */}
+      {isMobile ? (
+        /* Mobile: just RAISE (opens sheet) + ALL IN, same fixed-height slot */
+        <div style={{
+          display: 'flex',
+          gap: 8,
+          justifyContent: 'center',
+          alignItems: 'center',
+          height: 46,
+          visibility: canRaise ? 'visible' : 'hidden',
+        }}>
+          <button
+            className="abtn abtn-raise"
+            style={{ height: 46 }}
             disabled={disabled}
-            onKeyDown={e => e.key === 'Enter' && handleRaise()}
-            style={{
-              width: 90,
-              padding: '10px 10px',
-              borderColor: isOverMax ? '#ff4444' : undefined,
-              outline: isOverMax ? '1px solid #ff4444' : undefined,
-            }}
-          />
-          {isOverMax && (
-            <div style={{
-              position: 'absolute',
-              top: '100%',
-              left: 0,
-              fontSize: 7,
-              color: '#ff4444',
-              fontFamily: 'var(--font-label)',
-              whiteSpace: 'nowrap',
-              marginTop: 2,
-            }}>
-              Max ${maxRaise}
+            onClick={() => setShowRaiseSheet(true)}
+          >
+            {t('action.raise')} ▲
+          </button>
+          <button
+            className="abtn"
+            disabled={disabled}
+            onClick={() => onAction('allin', 0)}
+            style={{ height: 46, borderColor: '#aa2222', color: '#ff4444', fontSize: 7, padding: '4px 14px', lineHeight: 1.5 }}
+          >
+            {t('action.allin')}<br />${human?.chips}
+          </button>
+        </div>
+      ) : (
+        /* Desktop: full raise controls row (fixed height slot, hidden when !canRaise) */
+        <div style={{
+          display: 'flex',
+          gap: 8,
+          justifyContent: 'center',
+          alignItems: 'center',
+          height: 46,
+          visibility: canRaise ? 'visible' : 'hidden',
+          flexWrap: 'nowrap',
+          overflow: 'hidden',
+        }}>
+          <button className="abtn" style={smBtn} disabled={disabled}
+            onClick={() => setQuickBet(Math.round(gameState.pot / 2))}>
+            {t('bet.halfPot')}
+          </button>
+          <button className="abtn" style={smBtn} disabled={disabled}
+            onClick={() => setQuickBet(gameState.pot)}>
+            {t('bet.pot')}
+          </button>
+          <button className="abtn" style={smBtn} disabled={disabled}
+            onClick={() => setQuickBet(40)}>
+            {t('bet.2xbb')}
+          </button>
+          <button className="abtn" style={{ fontSize: 14, padding: '4px 10px', lineHeight: 1 }}
+            disabled={disabled} onClick={() => adjustAmount(-step)}>
+            ▼
+          </button>
+          <div style={{ position: 'relative' }}>
+            <input
+              className="raise-inp"
+              type="number"
+              min={minRaise}
+              max={maxRaise}
+              placeholder={`$${minRaise}`}
+              value={raiseAmount}
+              onChange={e => setRaiseAmount(e.target.value)}
+              disabled={disabled}
+              onKeyDown={e => e.key === 'Enter' && handleRaise()}
+              style={{
+                width: 90,
+                padding: '10px 10px',
+                borderColor: isOverMax ? '#ff4444' : undefined,
+                outline: isOverMax ? '1px solid #ff4444' : undefined,
+              }}
+            />
+            {isOverMax && (
+              <div style={{
+                position: 'absolute',
+                top: '100%',
+                left: 0,
+                fontSize: 7,
+                color: '#ff4444',
+                fontFamily: 'var(--font-label)',
+                whiteSpace: 'nowrap',
+                marginTop: 2,
+              }}>
+                Max ${maxRaise}
+              </div>
+            )}
+          </div>
+          <button className="abtn" style={{ fontSize: 14, padding: '4px 10px', lineHeight: 1 }}
+            disabled={disabled} onClick={() => adjustAmount(step)}>
+            ▲
+          </button>
+          <button className="abtn" style={{ fontSize: 10, padding: '4px 6px', lineHeight: 1, borderColor: 'var(--gold-d)', color: 'var(--gold-d)' }}
+            onClick={() => setStepIdx(i => (i - 1 + STEPS.length) % STEPS.length)}>
+            ◀
+          </button>
+          <div style={{ fontSize: 7, color: 'var(--gold-d)', fontFamily: 'var(--font-label)', whiteSpace: 'nowrap', letterSpacing: 1 }}>
+            {t('bet.step')} {step}
+          </div>
+          <button className="abtn" style={{ fontSize: 10, padding: '4px 6px', lineHeight: 1, borderColor: 'var(--gold-d)', color: 'var(--gold-d)' }}
+            onClick={() => setStepIdx(i => (i + 1) % STEPS.length)}>
+            ▶
+          </button>
+          <div style={{ fontSize: 7, color: 'var(--gold-d)', fontFamily: 'var(--font-label)', whiteSpace: 'nowrap', letterSpacing: 1 }}>
+            {minRaise}~{maxRaise}
+          </div>
+          <button
+            className="abtn abtn-raise"
+            disabled={disabled || raiseAmount === ''}
+            onClick={handleRaise}
+          >
+            {t('action.raise')} ▲<Hint k="R" />
+          </button>
+          <button
+            className="abtn"
+            disabled={disabled}
+            onClick={() => onAction('allin', 0)}
+            style={{ borderColor: '#aa2222', color: '#ff4444', fontSize: 7, padding: '4px 10px', lineHeight: 1.5 }}
+          >
+            {t('action.allin')}<br />${human?.chips}<Hint k="A" />
+          </button>
+        </div>
+      )}
+
+      {/* ══════ Mobile Raise Bottom Sheet ══════ */}
+      {isMobile && showRaiseSheet && (
+        <div
+          style={{
+            position: 'fixed',
+            bottom: 0,
+            left: 0,
+            right: 0,
+            background: 'var(--surface)',
+            border: '3px solid var(--gold)',
+            borderBottom: 'none',
+            padding: '12px 12px max(12px, env(safe-area-inset-bottom))',
+            zIndex: 400,
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 10,
+          }}
+        >
+          {/* Sheet header */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div style={{ fontSize: 8, color: 'var(--gold)', fontFamily: 'var(--font-label)', letterSpacing: 2 }}>
+              {t('action.raise')} — {minRaise}~{maxRaise}
             </div>
-          )}
+            <button
+              style={{ background: 'none', border: '1px solid var(--gold-d)', color: 'var(--gold-d)', fontSize: 10, padding: '2px 8px', cursor: 'pointer', fontFamily: 'var(--font-label)' }}
+              onClick={() => setShowRaiseSheet(false)}
+            >
+              ✕
+            </button>
+          </div>
+
+          {/* Quick-bet row */}
+          <div style={{ display: 'flex', gap: 8, justifyContent: 'center' }}>
+            <button className="abtn" style={smBtn} disabled={disabled}
+              onClick={() => setQuickBet(Math.round(gameState.pot / 2))}>
+              {t('bet.halfPot')}
+            </button>
+            <button className="abtn" style={smBtn} disabled={disabled}
+              onClick={() => setQuickBet(gameState.pot)}>
+              {t('bet.pot')}
+            </button>
+            <button className="abtn" style={smBtn} disabled={disabled}
+              onClick={() => setQuickBet(40)}>
+              {t('bet.2xbb')}
+            </button>
+          </div>
+
+          {/* Amount input row */}
+          <div style={{ display: 'flex', gap: 8, justifyContent: 'center', alignItems: 'center' }}>
+            <button className="abtn" style={{ fontSize: 14, padding: '4px 12px', lineHeight: 1 }}
+              disabled={disabled} onClick={() => adjustAmount(-step)}>
+              ▼
+            </button>
+            <div style={{ position: 'relative' }}>
+              <input
+                className="raise-inp"
+                type="number"
+                min={minRaise}
+                max={maxRaise}
+                placeholder={`$${minRaise}`}
+                value={raiseAmount}
+                onChange={e => setRaiseAmount(e.target.value)}
+                disabled={disabled}
+                onKeyDown={e => e.key === 'Enter' && handleRaise()}
+                style={{
+                  width: 100,
+                  padding: '10px 10px',
+                  borderColor: isOverMax ? '#ff4444' : undefined,
+                  outline: isOverMax ? '1px solid #ff4444' : undefined,
+                }}
+              />
+              {isOverMax && (
+                <div style={{ position: 'absolute', top: '100%', left: 0, fontSize: 7, color: '#ff4444', fontFamily: 'var(--font-label)', whiteSpace: 'nowrap', marginTop: 2 }}>
+                  Max ${maxRaise}
+                </div>
+              )}
+            </div>
+            <button className="abtn" style={{ fontSize: 14, padding: '4px 12px', lineHeight: 1 }}
+              disabled={disabled} onClick={() => adjustAmount(step)}>
+              ▲
+            </button>
+            <button className="abtn" style={{ fontSize: 10, padding: '4px 6px', lineHeight: 1, borderColor: 'var(--gold-d)', color: 'var(--gold-d)' }}
+              onClick={() => setStepIdx(i => (i - 1 + STEPS.length) % STEPS.length)}>
+              ◀
+            </button>
+            <div style={{ fontSize: 7, color: 'var(--gold-d)', fontFamily: 'var(--font-label)', whiteSpace: 'nowrap', letterSpacing: 1 }}>
+              {step}
+            </div>
+            <button className="abtn" style={{ fontSize: 10, padding: '4px 6px', lineHeight: 1, borderColor: 'var(--gold-d)', color: 'var(--gold-d)' }}
+              onClick={() => setStepIdx(i => (i + 1) % STEPS.length)}>
+              ▶
+            </button>
+          </div>
+
+          {/* Confirm row */}
+          <div style={{ display: 'flex', gap: 8, justifyContent: 'center' }}>
+            <button
+              className="abtn abtn-raise"
+              style={{ flex: 1, maxWidth: 200 }}
+              disabled={disabled || raiseAmount === ''}
+              onClick={handleRaise}
+            >
+              {t('action.raise')} ▲
+            </button>
+          </div>
         </div>
-
-        {/* Increment */}
-        <button className="abtn" style={{ fontSize: 14, padding: '4px 10px', lineHeight: 1 }}
-          disabled={disabled} onClick={() => adjustAmount(step)}>
-          ▲
-        </button>
-
-        {/* Step selector */}
-        <button className="abtn" style={{ fontSize: 10, padding: '4px 6px', lineHeight: 1, borderColor: 'var(--gold-d)', color: 'var(--gold-d)' }}
-          onClick={() => setStepIdx(i => (i - 1 + STEPS.length) % STEPS.length)}>
-          ◀
-        </button>
-        <div style={{ fontSize: 7, color: 'var(--gold-d)', fontFamily: 'var(--font-label)', whiteSpace: 'nowrap', letterSpacing: 1 }}>
-          {t('bet.step')} {step}
-        </div>
-        <button className="abtn" style={{ fontSize: 10, padding: '4px 6px', lineHeight: 1, borderColor: 'var(--gold-d)', color: 'var(--gold-d)' }}
-          onClick={() => setStepIdx(i => (i + 1) % STEPS.length)}>
-          ▶
-        </button>
-
-        {/* Range hint */}
-        <div style={{ fontSize: 7, color: 'var(--gold-d)', fontFamily: 'var(--font-label)', whiteSpace: 'nowrap', letterSpacing: 1 }}>
-          {minRaise}~{maxRaise}
-        </div>
-
-        {/* RAISE confirm */}
-        <button
-          className="abtn abtn-raise"
-          disabled={disabled || raiseAmount === ''}
-          onClick={handleRaise}
-        >
-          {t('action.raise')} ▲<Hint k="R" />
-        </button>
-
-        {/* ALL IN */}
-        <button
-          className="abtn"
-          disabled={disabled}
-          onClick={() => onAction('allin', 0)}
-          style={{ borderColor: '#aa2222', color: '#ff4444', fontSize: 7, padding: '4px 10px', lineHeight: 1.5 }}
-        >
-          {t('action.allin')}<br />${human?.chips}<Hint k="A" />
-        </button>
-
-      </div>
+      )}
 
     </div>
   );
