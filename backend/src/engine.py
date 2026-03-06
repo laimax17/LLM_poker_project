@@ -71,6 +71,24 @@ class HandEvaluator:
         return best_rank, best_tiebreakers
 
     @staticmethod
+    def best_five(cards: List[Card]) -> List[Card]:
+        """Return the 5 cards that form the best hand from the given cards."""
+        import itertools
+        best_rank = HandRank.HIGH_CARD
+        best_tiebreakers: List[int] = []
+        best_combo: List[Card] = list(cards[:5])
+        for combo in itertools.combinations(cards, 5):
+            combo_list = sorted(list(combo), key=lambda c: c.rank.value, reverse=True)
+            rank, tiebreakers = HandEvaluator._evaluate_five(combo_list)
+            if rank.value > best_rank.value or (
+                rank.value == best_rank.value and tiebreakers > best_tiebreakers
+            ):
+                best_rank = rank
+                best_tiebreakers = tiebreakers
+                best_combo = combo_list
+        return best_combo
+
+    @staticmethod
     def _evaluate_five(cards: List[Card]) -> Tuple[HandRank, List[int]]:
         ranks = [c.rank.value for c in cards]
         suits = [c.suit for c in cards]
@@ -153,9 +171,13 @@ class PokerEngine:
         self.players.append(Player(player_id, name, chips))
 
     def start_hand(self):
-        # Rotate dealer
+        # Rotate dealer, skipping eliminated players (chips == 0)
         self.dealer_idx = (self.dealer_idx + 1) % len(self.players)
-        
+        steps = 0
+        while self.players[self.dealer_idx].chips == 0 and steps < len(self.players):
+            self.dealer_idx = (self.dealer_idx + 1) % len(self.players)
+            steps += 1
+
         self.reset_deck()
         self.community_cards = []
         self.pot = 0
@@ -164,14 +186,15 @@ class PokerEngine:
         self.state = GameState.PREFLOP
         self.winners = []
         self.winning_hand_rank = ""
-        
+        self.winning_cards: List[Card] = []
+
         for p in self.players:
             p.hand = []
             p.is_active = True if p.chips > 0 else False
             p.current_bet = 0
             p.is_all_in = False
             p.has_acted = False
-        
+
         active_count = sum(1 for p in self.players if p.is_active)
         if active_count < 2:
             raise ValueError("Not enough players")
@@ -181,14 +204,25 @@ class PokerEngine:
                 if p.is_active:
                     p.hand.append(self.deck.pop())
 
+        # Find first ACTIVE player after dealer for SB (skip eliminated seats)
         sb_idx = (self.dealer_idx + 1) % len(self.players)
-        bb_idx = (self.dealer_idx + 2) % len(self.players)
-        
+        steps = 0
+        while not self.players[sb_idx].is_active and steps < len(self.players):
+            sb_idx = (sb_idx + 1) % len(self.players)
+            steps += 1
+
+        # Find first ACTIVE player after SB for BB (skip eliminated seats)
+        bb_idx = (sb_idx + 1) % len(self.players)
+        steps = 0
+        while not self.players[bb_idx].is_active and steps < len(self.players):
+            bb_idx = (bb_idx + 1) % len(self.players)
+            steps += 1
+
         self._place_bet_logic(self.players[sb_idx], self.small_blind)
         self._place_bet_logic(self.players[bb_idx], self.big_blind)
-        
-        self.current_player_idx = (self.dealer_idx + 3) % len(self.players)
-        # Skip all-in or inactive players
+
+        # First to act preflop: first active non-all-in player after BB
+        self.current_player_idx = (bb_idx + 1) % len(self.players)
         steps = 0
         while not (self.players[self.current_player_idx].is_active and not self.players[self.current_player_idx].is_all_in) and steps < len(self.players):
             self.current_player_idx = (self.current_player_idx + 1) % len(self.players)
@@ -316,6 +350,7 @@ class PokerEngine:
         self.state = GameState.SHOWDOWN
         self.winners = []
         self.winning_hand_rank = ""
+        self.winning_cards = []
 
         if winner_by_fold:
             winner_by_fold.chips += self.pot
@@ -345,6 +380,7 @@ class PokerEngine:
             
             self.winners = [w.id for w in winners_list]
             self.winning_hand_rank = best[1].name.replace("_", " ").title()
+            self.winning_cards = HandEvaluator.best_five(best[0].hand + self.community_cards)
 
         self.state = GameState.FINISHED
 
@@ -362,7 +398,8 @@ class PokerEngine:
             "max_raises_per_street": self.max_raises_per_street,
             "can_raise": self.raise_count < self.max_raises_per_street,
             "winners": getattr(self, "winners", []),
-            "winning_hand": getattr(self, "winning_hand_rank", "")
+            "winning_hand": getattr(self, "winning_hand_rank", ""),
+            "winning_cards": [c.to_dict() for c in getattr(self, "winning_cards", [])]
         }
 
         # Reveal hands at a real showdown: multiple players went to showdown (not fold-out)

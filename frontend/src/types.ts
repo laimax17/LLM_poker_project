@@ -30,6 +30,7 @@ export interface GameState {
   min_raise: number;
   winners: string[];
   winning_hand: string;
+  winning_cards: Card[];
   can_raise: boolean;
   raise_count: number;
   max_raises_per_street: number;

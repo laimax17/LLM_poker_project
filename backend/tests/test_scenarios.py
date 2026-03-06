@@ -606,15 +606,15 @@ def test_scenario_12_player_elimination_across_hands():
     assert carol.chips == 1100  # 900 + pot(200)
     assert sum(p.chips for p in engine.players) == 2100
 
-    # ── Hand 2: dealer rotates to 1 (Bob, inactive) ────────────────────────
+    # ── Hand 2: dealer skips Bob (0 chips) and lands on Carol ──────────────
     engine.start_hand()
-    assert engine.dealer_idx == 1
+    assert engine.dealer_idx == 2  # dealer skipped Bob(idx=1, 0 chips) → Carol(idx=2)
 
     bob = engine.players[1]
     assert bob.is_active is False  # Bob has 0 chips → sits out
 
-    # 2 active players: Carol (SB) and Alice (BB)
-    # SB=(1+1)%3=2(Carol), BB=(1+2)%3=0(Alice)
+    # 2 active players: dealer=Carol(2), SB=Alice(0), BB wraps to Carol(2)
+    # (Bob at idx=1 is inactive so BB skips past him back to Carol)
     alice = engine.players[0]
     carol = engine.players[2]
 
@@ -628,12 +628,13 @@ def test_scenario_12_player_elimination_across_hands():
         Card(Rank.FOUR, Suit.CLUBS),
     ]
 
-    # First active non-all-in player after dealer(Bob,inactive) is Carol (SB)
-    _act(engine, "p3", "call")   # Carol (SB) calls
-    _act(engine, "p1", "check")  # Alice (BB) checks → FLOP
-    _act(engine, "p3", "check"); _act(engine, "p1", "check")  # flop
-    _act(engine, "p3", "check"); _act(engine, "p1", "check")  # turn
-    _act(engine, "p3", "check"); _act(engine, "p1", "check")  # river
+    # Preflop: first to act is Alice (SB, first active after BB=Carol)
+    _act(engine, "p1", "call")   # Alice (SB) calls (+10 to match BB=20)
+    _act(engine, "p3", "check")  # Carol (BB) checks her option → FLOP
+    # Postflop: SB(Alice) acts first (first active left of dealer Carol)
+    _act(engine, "p1", "check"); _act(engine, "p3", "check")  # flop
+    _act(engine, "p1", "check"); _act(engine, "p3", "check")  # turn
+    _act(engine, "p1", "check"); _act(engine, "p3", "check")  # river
 
     assert engine.state == GameState.FINISHED
     assert engine.winners == ["p1"]  # AK > 32

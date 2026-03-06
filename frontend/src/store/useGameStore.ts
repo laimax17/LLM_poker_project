@@ -52,6 +52,9 @@ interface GameStore {
   // Floating action announcement
   currentAction: PlayerAction | null;
 
+  // Action in-flight: true from sendAction until server responds (prevents double-click + stops blink)
+  actionInFlight: boolean;
+
   // Game over
   isGameOver: boolean;
   gameOverReason: string | null;
@@ -80,6 +83,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
   errorMessage: null,
   handCount: 0,
   currentAction: null,
+  actionInFlight: false,
   isGameOver: false,
   gameOverReason: null,
   coachAdvice: null,
@@ -146,6 +150,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       set(state => ({
         gameState: data,
         handCount: isNewHand ? state.handCount + 1 : state.handCount,
+        actionInFlight: false,  // server responded → clear in-flight lock
       }));
     });
 
@@ -260,7 +265,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
         action: action as PlayerAction['action'],
         amount,
       };
-      set({ currentAction: humanAction });
+      set({ currentAction: humanAction, actionInFlight: true });
       setTimeout(() => {
         set(state => {
           if (state.currentAction === humanAction) return { currentAction: null };

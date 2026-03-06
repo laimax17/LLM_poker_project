@@ -11,6 +11,12 @@ interface PlayerBoxProps {
   isCurrentTurn: boolean;
   chipBubbleSide: 'right' | 'left';
   badge?: string;   // 'BTN' | 'SB' | 'BB' | 'UTG' | 'HJ' | 'CO'
+  winningCards?: CardType[];
+  compact?: boolean; // mobile landscape: smaller box, no speech bubble/chip bubble
+}
+
+function isWinCard(card: CardType, winningCards?: CardType[]): boolean {
+  return winningCards?.some(wc => wc.rank === card.rank && wc.suit === card.suit) ?? false;
 }
 
 function getStatusText(
@@ -30,6 +36,8 @@ const PlayerBox: React.FC<PlayerBoxProps> = ({
   isCurrentTurn,
   chipBubbleSide,
   badge,
+  winningCards,
+  compact = false,
 }) => {
   const { t } = useT();
   const isFolded = !player.is_active;
@@ -41,8 +49,8 @@ const PlayerBox: React.FC<PlayerBoxProps> = ({
   const boxStyle: React.CSSProperties = {
     background: 'rgba(10, 9, 0, 0.88)',
     border: '2px solid var(--brown)',
-    padding: '10px 14px',
-    width: 260,
+    padding: compact ? '5px 8px' : '10px 14px',
+    width: compact ? 150 : 260,
     clipPath: 'var(--clip-sm)',
     opacity: isFolded ? 0.3 : 1,
     flexShrink: 0,
@@ -57,7 +65,7 @@ const PlayerBox: React.FC<PlayerBoxProps> = ({
 
   // Show face-up cards only at showdown (cards will be Card objects instead of null)
   const showCards = player.hand.length === 2 && player.hand[0] !== null && player.hand[1] !== null;
-  const hasChipBubble = player.current_bet > 0 && player.is_active;
+  const hasChipBubble = !compact && player.current_bet > 0 && player.is_active;
 
   const bubbleEl = hasChipBubble ? (
     <div style={{
@@ -103,11 +111,11 @@ const PlayerBox: React.FC<PlayerBoxProps> = ({
         {badge && (
           <div style={{
             position: 'absolute',
-            top: -14,
+            top: compact ? -11 : -14,
             right: 5,
             background: 'var(--gold)',
             color: '#000',
-            fontSize: 11,
+            fontSize: compact ? 8 : 11,
             padding: '2px 6px',
             fontFamily: 'var(--font-ui)',
             lineHeight: 1.4,
@@ -122,9 +130,9 @@ const PlayerBox: React.FC<PlayerBoxProps> = ({
           {/* Bot name */}
           <div style={{
             fontFamily: 'var(--font-ui)',
-            fontSize: 14,
+            fontSize: compact ? 10 : 14,
             color: 'var(--gold)',
-            marginBottom: 4,
+            marginBottom: 3,
             overflow: 'hidden',
             textOverflow: 'ellipsis',
             whiteSpace: 'nowrap',
@@ -134,9 +142,9 @@ const PlayerBox: React.FC<PlayerBoxProps> = ({
 
           {/* Chips — key replays numUpdate animation when chips change */}
           <div style={{
-            fontSize: 11,
+            fontSize: compact ? 9 : 11,
             color: 'var(--gold-l)',
-            marginBottom: 4,
+            marginBottom: 3,
             fontFamily: 'var(--font-label)',
           }}>
             <span
@@ -149,7 +157,7 @@ const PlayerBox: React.FC<PlayerBoxProps> = ({
 
           {/* Status */}
           <div style={{
-            fontSize: 10,
+            fontSize: compact ? 8 : 10,
             color: status.color,
             fontFamily: 'var(--font-label)',
             display: 'flex',
@@ -172,32 +180,34 @@ const PlayerBox: React.FC<PlayerBoxProps> = ({
           </div>
 
           {/* Cards (face-down or face-up at showdown) */}
-          <div style={{ display: 'flex', gap: 6, marginTop: 6 }}>
+          <div style={{ display: 'flex', gap: compact ? 3 : 6, marginTop: compact ? 4 : 6 }}>
             {showCards ? (
               <>
-                <Card
-                  size="md"
-                  variant="face-up"
-                  rank={(player.hand[0] as CardType).rank}
-                  suit={(player.hand[0] as CardType).suit}
-                />
-                <Card
-                  size="md"
-                  variant="face-up"
-                  rank={(player.hand[1] as CardType).rank}
-                  suit={(player.hand[1] as CardType).suit}
-                />
+                {[player.hand[0] as CardType, player.hand[1] as CardType].map((card, i) => {
+                  const win = isWinCard(card, winningCards);
+                  return (
+                    <Card
+                      key={i}
+                      size={compact ? 'sm' : 'md'}
+                      variant="face-up"
+                      rank={card.rank}
+                      suit={card.suit}
+                      glow={win ? 'win' : 'none'}
+                      style={win ? { animation: 'winCardPulse 1.1s ease-in-out infinite' } : undefined}
+                    />
+                  );
+                })}
               </>
             ) : (
               <>
-                <Card size="md" variant="face-down" />
-                <Card size="md" variant="face-down" />
+                <Card size={compact ? 'sm' : 'md'} variant="face-down" />
+                <Card size={compact ? 'sm' : 'md'} variant="face-down" />
               </>
             )}
           </div>
 
-          {/* Speech bubble — floats outside this box via absolute positioning */}
-          {thought && (
+          {/* Speech bubble — floats outside this box via absolute positioning; hidden in compact mode */}
+          {!compact && thought && (
             <BotSpeechBubble text={thought.chat} side={chipBubbleSide} fading={thought.fading} />
           )}
         </div>

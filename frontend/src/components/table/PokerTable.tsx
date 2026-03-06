@@ -9,6 +9,7 @@ import DealerBadge from './DealerBadge';
 import ActionAnnouncement from './ActionAnnouncement';
 import { useGameStore } from '../../store/useGameStore';
 import { useT } from '../../i18n/I18nContext';
+import { useIsMobile } from '../../hooks/useIsMobile';
 
 interface PokerTableProps {
   gameState: GameState;
@@ -35,7 +36,11 @@ function getBadge(
 
 const PokerTable: React.FC<PokerTableProps> = ({ gameState, handCount }) => {
   const { t } = useT();
-  const { players, community_cards, pot, state, current_player_idx } = gameState;
+  const isMobile = useIsMobile();
+  const { players, community_cards, pot, state, current_player_idx, winning_cards } = gameState;
+
+  // At a real showdown (not fold-out), we have winning_cards to highlight
+  const isActualShowdown = (state === 'SHOWDOWN' || state === 'FINISHED') && winning_cards.length > 0;
 
   // players[0] = human; bots = players[1..5]
   const humanPlayer = players[0];
@@ -53,6 +58,15 @@ const PokerTable: React.FC<PokerTableProps> = ({ gameState, handCount }) => {
 
   // Floating action announcement from store
   const currentAction = useGameStore(s => s.currentAction);
+  // actionInFlight: human sent an action but server hasn't responded yet
+  const actionInFlight = useGameStore(s => s.actionInFlight);
+
+  // isActiveHumanTurn: true only while human must still act (stops blink immediately on click)
+  const isActiveHumanTurn =
+    current_player_idx === 0 &&
+    state !== 'SHOWDOWN' &&
+    state !== 'FINISHED' &&
+    !actionInFlight;
 
   // Track dealing/revealing state for DealerBadge
   const [isDealing, setIsDealing] = React.useState(false);
@@ -130,11 +144,11 @@ const PokerTable: React.FC<PokerTableProps> = ({ gameState, handCount }) => {
           {/* Left bots (3) */}
           <div style={{
             position: 'absolute',
-            left: 16,
-            top: 28,
+            left: isMobile ? 6 : 16,
+            top: isMobile ? 16 : 28,
             display: 'flex',
             flexDirection: 'column',
-            gap: 20,
+            gap: isMobile ? 6 : 20,
           }}>
             {leftBots.map((bot, i) => {
               const playerIdx = i + 1; // bot 0→idx1, bot 1→idx2, bot 2→idx3
@@ -145,6 +159,8 @@ const PokerTable: React.FC<PokerTableProps> = ({ gameState, handCount }) => {
                   isCurrentTurn={current_player_idx === playerIdx}
                   chipBubbleSide="right"
                   badge={getBadge(playerIdx, effectiveDealerIdx, totalPlayers)}
+                  winningCards={isActualShowdown && gameState.winners.includes(bot.id) ? winning_cards : undefined}
+                  compact={isMobile}
                 />
               );
             })}
@@ -153,11 +169,11 @@ const PokerTable: React.FC<PokerTableProps> = ({ gameState, handCount }) => {
           {/* Right bots (2) */}
           <div style={{
             position: 'absolute',
-            right: 16,
-            top: 28,
+            right: isMobile ? 6 : 16,
+            top: isMobile ? 16 : 28,
             display: 'flex',
             flexDirection: 'column',
-            gap: 20,
+            gap: isMobile ? 6 : 20,
             alignItems: 'flex-end',
           }}>
             {rightBots.map((bot, i) => {
@@ -169,6 +185,8 @@ const PokerTable: React.FC<PokerTableProps> = ({ gameState, handCount }) => {
                   isCurrentTurn={current_player_idx === playerIdx}
                   chipBubbleSide="left"
                   badge={getBadge(playerIdx, effectiveDealerIdx, totalPlayers)}
+                  winningCards={isActualShowdown && gameState.winners.includes(bot.id) ? winning_cards : undefined}
+                  compact={isMobile}
                 />
               );
             })}
@@ -186,7 +204,10 @@ const PokerTable: React.FC<PokerTableProps> = ({ gameState, handCount }) => {
             gap: 12,
           }}>
             <PotDisplay pot={pot} street={state} />
-            <CommunityCards cards={community_cards} />
+            <CommunityCards
+              cards={community_cards}
+              winningCards={isActualShowdown ? winning_cards : undefined}
+            />
           </div>
 
           {/* Human hole cards (bottom center) */}
@@ -194,11 +215,8 @@ const PokerTable: React.FC<PokerTableProps> = ({ gameState, handCount }) => {
             <HoleCards
               cards={humanPlayer.hand}
               handCount={handCount}
-              isHumanTurn={
-                current_player_idx === 0 &&
-                state !== 'SHOWDOWN' &&
-                state !== 'FINISHED'
-              }
+              isHumanTurn={isActiveHumanTurn}
+              winningCards={isActualShowdown && gameState.winners.includes(humanPlayer.id) ? winning_cards : undefined}
             />
           )}
 
@@ -206,19 +224,15 @@ const PokerTable: React.FC<PokerTableProps> = ({ gameState, handCount }) => {
           {humanPlayer && (
             <div style={{
               position: 'absolute',
-              bottom: 20,
-              left: 'calc(50% + 90px)',
+              bottom: isMobile ? 10 : 20,
+              left: isMobile ? 'calc(50% + 68px)' : 'calc(50% + 90px)',
             }}>
               <HumanPanel
                 player={humanPlayer}
                 dealerIdx={effectiveDealerIdx}
                 playerIdx={0}
                 totalPlayers={totalPlayers}
-                isHumanTurn={
-                  current_player_idx === 0 &&
-                  state !== 'SHOWDOWN' &&
-                  state !== 'FINISHED'
-                }
+                isHumanTurn={isActiveHumanTurn}
               />
             </div>
           )}
@@ -237,7 +251,9 @@ const PokerTable: React.FC<PokerTableProps> = ({ gameState, handCount }) => {
               .map(id => players.find(p => p.id === id)?.name ?? id)
               .join(' & ');
             return (
-              <div style={{
+              <div
+                key={gameState.winners.join('-')}
+                style={{
                 position: 'absolute',
                 top: '30%',
                 left: '50%',
@@ -249,6 +265,7 @@ const PokerTable: React.FC<PokerTableProps> = ({ gameState, handCount }) => {
                 clipPath: 'var(--clip-md)',
                 zIndex: 10,
                 whiteSpace: 'nowrap',
+                animation: 'showdownReveal 0.45s cubic-bezier(0.34, 1.56, 0.64, 1) forwards',
               }}>
                 <div style={{ fontSize: 7, color: 'var(--gold-d)', letterSpacing: 3, marginBottom: 8, fontFamily: 'var(--font-label)' }}>
                   {t('showdown.label')}
