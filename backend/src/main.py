@@ -22,8 +22,7 @@ from .ai.llm_strategy import LLMBotStrategy
 from .ai.coach import AICoach
 from .ai.gto_strategy import GTOBotStrategy
 from .ai.gto_coach import GTOCoach
-from .ai.ollama import OllamaClient
-from .ai.qwen import QwenClient
+from .ai.openrouter import OpenRouterClient
 from .ai.strategy import BotStrategy
 
 # Seed PRNG with OS entropy for unpredictable shuffles every server restart
@@ -68,48 +67,42 @@ _DEFAULT_THINK_TIME: tuple[float, float] = (1.0, 2.5)
 # ─── Global state ─────────────────────────────────────────────────────────────
 engine = PokerEngine()
 _ai_lock = asyncio.Lock()  # Prevents concurrent bot decision loops
-# Per-bot strategy dict (for rule-based mode, each bot has its own personality)
+# Per-bot strategy dict (GTO fallback: each bot has its own personality)
 _bot_strategies: dict[str, BotStrategy] = {}
-# Fallback single strategy (used for GTO/LLM where all bots share one)
+# Shared strategy (LLM when OpenRouter key is set, otherwise GTO)
 _strategy: BotStrategy = RuleBasedStrategy()
 _coach: Optional[AICoach | GTOCoach] = None
-_llm_engine: str = os.environ.get('DEFAULT_AI_ENGINE', 'rule-based')
-_llm_model: str = ''
+_llm_model: str = os.environ.get('OPENROUTER_MODEL', '')
 _locale: str = 'en'  # current UI locale ('en' or 'zh'), affects bot chat language
 
 
 # ─── Strategy factory ─────────────────────────────────────────────────────────
 def _build_strategy(
-    engine_name: str, model: str
-) -> tuple[BotStrategy, AICoach | GTOCoach | None]:
-    """Return (fallback_strategy, coach) pair for the given engine name.
+    model: str,
+) -> tuple[BotStrategy, AICoach | GTOCoach]:
+    """Return (strategy, coach) pair.
 
-    LLM engines: bots use LLMBotStrategy, coach uses AICoach (LLM-powered).
-    GTO engine:  bots use GTOBotStrategy, coach uses GTOCoach (no LLM needed).
-    Rule-based:  bots use RuleBasedStrategy, coach uses GTOCoach so the human
-                 always has access to GTO hints even without an LLM.
+    If OPENROUTER_API_KEY is set: bots use LLMBotStrategy via OpenRouter,
+    coach uses AICoach (LLM-powered).
+    Otherwise: bots use GTOBotStrategy, coach uses GTOCoach (no LLM needed).
     """
-    if engine_name == 'ollama':
-        client = OllamaClient(model=model or None)
+    api_key = os.environ.get('OPENROUTER_API_KEY', '')
+    if api_key:
+        client = OpenRouterClient(model=model or None)
         return LLMBotStrategy(client), AICoach(client)
-    if engine_name in ('qwen-plus', 'qwen-max'):
-        client = QwenClient(model=model or engine_name)
-        return LLMBotStrategy(client), AICoach(client)
-    if engine_name == 'gto':
-        return GTOBotStrategy(), GTOCoach()
-    # 'rule-based' (default): bots use GTO+personality strategy, human gets GTO coach hints
+    # No API key → pure GTO fallback
+    logger.info('No OPENROUTER_API_KEY set; using GTO strategy as fallback')
     return GTOBotStrategy(), GTOCoach()
 
 
-def _rebuild_bot_strategies(engine_name: str, model: str) -> None:
+def _rebuild_bot_strategies(is_llm: bool) -> None:
     """Rebuild the per-bot strategy dict.
 
-    For rule-based and gto: each bot gets its own GTOBotStrategy with a unique personality,
-    combining GTO-optimal math with distinct character via personality modifiers.
-    For LLM: all bots share the same LLMBotStrategy instance (no per-bot dict needed).
+    GTO mode: each bot gets its own GTOBotStrategy with a unique personality.
+    LLM mode: all bots share the LLMBotStrategy instance (no per-bot dict needed).
     """
     global _bot_strategies
-    if engine_name in ('rule-based', 'gto'):
+    if not is_llm:
         _bot_strategies = {
             prof['id']: GTOBotStrategy(personality=prof['personality'])
             for prof in BOT_PROFILES
@@ -119,8 +112,8 @@ def _rebuild_bot_strategies(engine_name: str, model: str) -> None:
 
 
 # Initialise from env
-_strategy, _coach = _build_strategy(_llm_engine, _llm_model)
-_rebuild_bot_strategies(_llm_engine, _llm_model)
+_strategy, _coach = _build_strategy(_llm_model)
+_rebuild_bot_strategies(isinstance(_strategy, LLMBotStrategy))
 
 
 def _get_strategy(bot_id: str) -> BotStrategy:
@@ -225,7 +218,6 @@ async def health() -> dict[str, Any]:
         llm_ok = await _strategy.llm.health_check()
     return {
         'status': 'ok',
-        'engine': _llm_engine,
         'model': _llm_model,
         'llm_connected': llm_ok,
     }
@@ -244,24 +236,22 @@ async def start_game() -> dict[str, str]:
 
 
 class AIConfigRequest(BaseModel):
-    engine: str
     model: str
 
 
 @app.get('/ai/config')
 def get_ai_config() -> dict[str, str]:
-    return {'engine': _llm_engine, 'model': _llm_model}
+    return {'model': _llm_model}
 
 
 @app.post('/ai/config')
 async def set_ai_config(config: AIConfigRequest) -> dict[str, str]:
-    global _strategy, _coach, _llm_engine, _llm_model
-    _llm_engine = config.engine
+    global _strategy, _coach, _llm_model
     _llm_model = config.model
-    _strategy, _coach = _build_strategy(config.engine, config.model)
-    _rebuild_bot_strategies(config.engine, config.model)
-    logger.info('AI config updated via HTTP: engine=%s model=%s', config.engine, config.model)
-    return {'status': 'ok', 'engine': _llm_engine, 'model': _llm_model}
+    _strategy, _coach = _build_strategy(config.model)
+    _rebuild_bot_strategies(isinstance(_strategy, LLMBotStrategy))
+    logger.info('AI config updated via HTTP: model=%s', config.model)
+    return {'status': 'ok', 'model': _llm_model}
 
 
 # ─── Socket.IO events ─────────────────────────────────────────────────────────
@@ -310,23 +300,14 @@ async def start_next_hand(sid: str, data: dict[str, Any]) -> None:
 
 @sio.event
 async def request_advice(sid: str, data: dict[str, Any]) -> None:
-    logger.info('request_advice from %s: engine=%s', sid, data.get('engine'))
-    global _strategy, _coach, _llm_engine, _llm_model
-
-    req_engine = data.get('engine', _llm_engine)
-    req_model = data.get('model', _llm_model)
-    if req_engine != _llm_engine or req_model != _llm_model:
-        _llm_engine = req_engine
-        _llm_model = req_model
-        _strategy, _coach = _build_strategy(req_engine, req_model)
-        _rebuild_bot_strategies(req_engine, req_model)
+    logger.info('request_advice from %s', sid)
 
     if _coach is None:
         if _locale == 'zh':
-            _no_llm_body = '请先在 LLM 配置栏选择 Ollama 或 Qwen AI 引擎以使用 AI Coach。'
+            _no_llm_body = '请先设置 OPENROUTER_API_KEY 环境变量以使用 AI Coach。'
             _no_llm_label = '状态'
         else:
-            _no_llm_body = 'Select an Ollama or Qwen engine in the LLM Config bar to use AI Coach.'
+            _no_llm_body = 'Set OPENROUTER_API_KEY environment variable to use AI Coach.'
             _no_llm_label = 'Status'
         await sio.emit('ai_advice', {
             'recommendation': 'CHECK',
@@ -350,14 +331,12 @@ async def request_advice(sid: str, data: dict[str, Any]) -> None:
 
 @sio.event
 async def set_llm_config(sid: str, data: dict[str, Any]) -> None:
-    global _strategy, _coach, _llm_engine, _llm_model
-    engine_name = data.get('engine', 'rule-based')
+    global _strategy, _coach, _llm_model
     model = data.get('model', '')
-    _llm_engine = engine_name
     _llm_model = model
-    _strategy, _coach = _build_strategy(engine_name, model)
-    _rebuild_bot_strategies(engine_name, model)
-    logger.info('LLM config via socket: engine=%s model=%s', engine_name, model)
+    _strategy, _coach = _build_strategy(model)
+    _rebuild_bot_strategies(isinstance(_strategy, LLMBotStrategy))
+    logger.info('LLM config via socket: model=%s', model)
 
     if isinstance(_strategy, LLMBotStrategy):
         healthy = await _strategy.llm.health_check()

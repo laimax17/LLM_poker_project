@@ -399,8 +399,20 @@ class PokerEngine:
             "can_raise": self.raise_count < self.max_raises_per_street,
             "winners": getattr(self, "winners", []),
             "winning_hand": getattr(self, "winning_hand_rank", ""),
-            "winning_cards": [c.to_dict() for c in getattr(self, "winning_cards", [])]
+            "winning_cards": [c.to_dict() for c in getattr(self, "winning_cards", [])],
+            "current_hand_name": "",
         }
+
+        # Current hand strength for human observer (flop onwards)
+        human_player = next((p for p in self.players if p.id == observer_id), None)
+        if (human_player
+                and human_player.is_active
+                and len(self.community_cards) >= 3
+                and len(human_player.hand) == 2
+                and self.state not in (GameState.SHOWDOWN, GameState.FINISHED)):
+            combined = human_player.hand + self.community_cards
+            rank, _ = HandEvaluator.evaluate(combined)
+            state["current_hand_name"] = rank.name.replace("_", " ").title()
 
         # Reveal hands at a real showdown: multiple players went to showdown (not fold-out)
         is_actual_showdown = (

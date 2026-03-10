@@ -8,13 +8,14 @@ interface HoleCardsProps {
   isHumanTurn: boolean; // Fix 7: show red glow only when it's the human's turn to act
   handCount: number;    // Changes every new hand → triggers re-animation via key
   winningCards?: CardType[];
+  currentHandName?: string; // e.g. "Two Pair", "Flush" — shown below cards from flop onwards
 }
 
 function isWinCard(card: CardType, winningCards?: CardType[]): boolean {
   return winningCards?.some(wc => wc.rank === card.rank && wc.suit === card.suit) ?? false;
 }
 
-const HoleCards: React.FC<HoleCardsProps> = ({ cards, isHumanTurn, handCount, winningCards }) => {
+const HoleCards: React.FC<HoleCardsProps> = ({ cards, isHumanTurn, handCount, winningCards, currentHandName }) => {
   const { t } = useT();
   return (
     <div style={{
@@ -61,6 +62,19 @@ const HoleCards: React.FC<HoleCardsProps> = ({ cards, isHumanTurn, handCount, wi
           );
         })}
       </div>
+
+      {/* Current hand strength label (shown from flop onwards) */}
+      {currentHandName && (
+        <div style={{
+          fontSize: 8,
+          color: 'var(--gold)',
+          fontFamily: 'var(--font-label)',
+          letterSpacing: 2,
+          whiteSpace: 'nowrap',
+        }}>
+          {currentHandName.toUpperCase()}
+        </div>
+      )}
     </div>
   );
 };

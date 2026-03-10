@@ -31,15 +31,13 @@ export interface GameState {
   winners: string[];
   winning_hand: string;
   winning_cards: Card[];
+  current_hand_name: string;
   can_raise: boolean;
   raise_count: number;
   max_raises_per_street: number;
 }
 
-export type LLMEngine = 'rule-based' | 'gto' | 'ollama' | 'qwen-plus' | 'qwen-max';
-
 export interface LLMConfig {
-  engine: LLMEngine;
   model: string;
   status: 'online' | 'offline' | 'loading';
 }

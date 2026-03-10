@@ -152,6 +152,13 @@
   100% { filter: brightness(1.0) drop-shadow(0 0 0px var(--gold)); }
 }
 
+/* Chip fly — moves from player position toward the pot center */
+@keyframes chipFly {
+  0%   { opacity: 1; transform: translate(0, 0) scale(1); }
+  75%  { opacity: 1; transform: translate(var(--fly-dx), var(--fly-dy)) scale(0.7); }
+  100% { opacity: 0; transform: translate(var(--fly-dx), var(--fly-dy)) scale(0.3); }
+}
+
 /* Floating action announcement — pops up, scales, floats upward, then fades */
 @keyframes actionAnnounce {
   0%   { opacity: 0; transform: translate(-50%, 0) scale(0.7); }

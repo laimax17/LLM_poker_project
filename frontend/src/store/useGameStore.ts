@@ -24,6 +24,12 @@ interface GameOverData {
   final_chips: number;
 }
 
+interface ChipFlyTrigger {
+  id: string;
+  fromPlayerIdx: number;
+  amount: number;
+}
+
 interface GameStore {
   // Connection
   socket: Socket | null;
@@ -62,6 +68,9 @@ interface GameStore {
   // LLM Config
   llmConfig: LLMConfig;
 
+  // Chip fly animations
+  chipFlyTriggers: ChipFlyTrigger[];
+
   // Actions
   connect: () => void;
   startGame: () => Promise<void>;
@@ -72,6 +81,8 @@ interface GameStore {
   closeCoach: () => void;
   setLLMConfig: (config: Partial<LLMConfig>) => void;
   setLocale: (locale: string) => void;
+  addChipFly: (fromPlayerIdx: number, amount: number) => void;
+  removeChipFly: (id: string) => void;
 }
 
 export const useGameStore = create<GameStore>((set, get) => ({
@@ -90,9 +101,22 @@ export const useGameStore = create<GameStore>((set, get) => ({
   isRequestingAdvice: false,
   showCoach: false,
   llmConfig: {
-    engine: 'rule-based',
     model: '',
     status: 'online',
+  },
+  chipFlyTriggers: [],
+
+  addChipFly: (fromPlayerIdx: number, amount: number) => {
+    const id = `chip-${fromPlayerIdx}-${Date.now()}-${Math.random()}`;
+    set(state => ({
+      chipFlyTriggers: [...state.chipFlyTriggers, { id, fromPlayerIdx, amount }],
+    }));
+  },
+
+  removeChipFly: (id: string) => {
+    set(state => ({
+      chipFlyTriggers: state.chipFlyTriggers.filter(t => t.id !== id),
+    }));
   },
 
   connect: () => {
@@ -144,6 +168,17 @@ export const useGameStore = create<GameStore>((set, get) => ({
       const wasShowdown = prev?.state === 'SHOWDOWN' || prev?.state === 'FINISHED';
       if (isShowdown && !wasShowdown && humanId && data.winners.includes(humanId)) {
         playWin();
+      }
+      // ─────────────────────────────────────────────────────────────────────
+
+      // ── Chip fly animation triggers ─────────────────────────────────────
+      if (!isNewHand && prev?.players && data.players) {
+        data.players.forEach((player: { current_bet: number }, idx: number) => {
+          const prevBet = prev.players[idx]?.current_bet ?? 0;
+          if (player.current_bet > prevBet) {
+            get().addChipFly(idx, player.current_bet - prevBet);
+          }
+        });
       }
       // ─────────────────────────────────────────────────────────────────────
 
@@ -299,7 +334,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     const { socket, llmConfig } = get();
     if (!socket) return;
     set({ isRequestingAdvice: true, showCoach: true, coachAdvice: null });
-    socket.emit('request_advice', { engine: llmConfig.engine, model: llmConfig.model });
+    socket.emit('request_advice', { model: llmConfig.model });
   },
 
   closeCoach: () => {
@@ -311,7 +346,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     const newConfig = { ...get().llmConfig, ...config };
     set({ llmConfig: { ...newConfig, status: 'loading' } });
     if (socket) {
-      socket.emit('set_llm_config', { engine: newConfig.engine, model: newConfig.model });
+      socket.emit('set_llm_config', { model: newConfig.model });
     }
   },
 }));

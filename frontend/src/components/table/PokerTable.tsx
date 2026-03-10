@@ -7,6 +7,7 @@ import CommunityCards from './CommunityCards';
 import HoleCards from './HoleCards';
 import DealerBadge from './DealerBadge';
 import ActionAnnouncement from './ActionAnnouncement';
+import ChipFlyOverlay from './ChipFlyOverlay';
 import { useGameStore } from '../../store/useGameStore';
 import { useT } from '../../i18n/I18nContext';
 import { useIsMobile } from '../../hooks/useIsMobile';
@@ -51,8 +52,11 @@ const PokerTable: React.FC<PokerTableProps> = ({ gameState, handCount }) => {
   const effectiveDealerIdx = dealerIdx >= 0 ? dealerIdx : 0;
   const totalPlayers = players.length;
 
-  // Left column: bots at indices 1, 2, 3 → botPlayers[0,1,2]
-  const leftBots = botPlayers.slice(0, 3);
+  // Left column: reversed so visual order is clockwise
+  // Top→bottom: players[3], players[2], players[1]
+  // Turn order 1→2→3 flows bottom→mid→top (clockwise up the left side)
+  const leftBotIndices = [3, 2, 1] as const;
+  const leftBots = leftBotIndices.map(i => players[i]);
   // Right column: bots at indices 4, 5 → botPlayers[3,4]
   const rightBots = botPlayers.slice(3, 5);
 
@@ -141,7 +145,7 @@ const PokerTable: React.FC<PokerTableProps> = ({ gameState, handCount }) => {
             isShowdown={state === 'SHOWDOWN' || state === 'FINISHED'}
           />
 
-          {/* Left bots (3) */}
+          {/* Left bots (3) — rendered top→bottom as players[3],[2],[1] for clockwise flow */}
           <div style={{
             position: 'absolute',
             left: isMobile ? 6 : 16,
@@ -151,7 +155,7 @@ const PokerTable: React.FC<PokerTableProps> = ({ gameState, handCount }) => {
             gap: isMobile ? 6 : 20,
           }}>
             {leftBots.map((bot, i) => {
-              const playerIdx = i + 1; // bot 0→idx1, bot 1→idx2, bot 2→idx3
+              const playerIdx = leftBotIndices[i]; // 3, 2, 1
               return (
                 <PlayerBox
                   key={bot.id}
@@ -192,6 +196,9 @@ const PokerTable: React.FC<PokerTableProps> = ({ gameState, handCount }) => {
             })}
           </div>
 
+          {/* Chip fly animation overlay */}
+          <ChipFlyOverlay />
+
           {/* Table center: pot + community cards */}
           <div style={{
             position: 'absolute',
@@ -217,6 +224,7 @@ const PokerTable: React.FC<PokerTableProps> = ({ gameState, handCount }) => {
               handCount={handCount}
               isHumanTurn={isActiveHumanTurn}
               winningCards={isActualShowdown && gameState.winners.includes(humanPlayer.id) ? winning_cards : undefined}
+              currentHandName={gameState.current_hand_name}
             />
           )}
 
