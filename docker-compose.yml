@@ -12,9 +12,10 @@ services:
     environment:
       - OLLAMA_HOST=${OLLAMA_HOST:-http://host.docker.internal:11434}
       - OLLAMA_MODEL=${OLLAMA_MODEL:-qwen2.5:7b}
-      - DASHSCOPE_API_KEY=${DASHSCOPE_API_KEY:-}
-      - QWEN_MODEL=${QWEN_MODEL:-qwen-plus}
+      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY:-}
+      - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY:-}
       - DEFAULT_AI_ENGINE=${DEFAULT_AI_ENGINE:-rule-based}
+      - LLM_MODEL=${LLM_MODEL:-}
     extra_hosts:
       - "host.docker.internal:host-gateway"
     healthcheck:

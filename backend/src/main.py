@@ -23,7 +23,14 @@ from .ai.coach import AICoach
 from .ai.gto_strategy import GTOBotStrategy
 from .ai.gto_coach import GTOCoach
 from .ai.ollama import OllamaClient
-from .ai.qwen import QwenClient
+from .ai.openai_client import OpenAICompatibleClient
+from .ai.providers import (
+    PROVIDERS,
+    get_provider,
+    models_payload,
+    provider_api_key,
+    provider_available,
+)
 from .ai.strategy import BotStrategy
 from .learning import LearningTracker
 
@@ -75,7 +82,7 @@ _bot_strategies: dict[str, BotStrategy] = {}
 _strategy: BotStrategy = RuleBasedStrategy()
 _coach: Optional[AICoach | GTOCoach] = None
 _llm_engine: str = os.environ.get('DEFAULT_AI_ENGINE', 'rule-based')
-_llm_model: str = ''
+_llm_model: str = os.environ.get('LLM_MODEL', '')
 _locale: str = 'en'  # current UI locale ('en' or 'zh'), affects bot chat language
 
 # ─── Learning Mode state ──────────────────────────────────────────────────────
@@ -92,22 +99,37 @@ _tracker = LearningTracker()
 def _build_strategy(
     engine_name: str, model: str
 ) -> tuple[BotStrategy, AICoach | GTOCoach | None]:
-    """Return (fallback_strategy, coach) pair for the given engine name.
+    """Return (fallback_strategy, coach) pair for the given engine.
+
+    `engine_name` is one of:
+      - 'rule-based' / 'gto'  → offline bots + GTOCoach (no LLM)
+      - 'ollama'              → local LLM via OllamaClient
+      - any provider id in PROVIDERS (e.g. 'openrouter', 'deepseek')
+                              → cloud LLM via the unified OpenAICompatibleClient
 
     LLM engines: bots use LLMBotStrategy, coach uses AICoach (LLM-powered).
-    GTO engine:  bots use GTOBotStrategy, coach uses GTOCoach (no LLM needed).
-    Rule-based:  bots use RuleBasedStrategy, coach uses GTOCoach so the human
-                 always has access to GTO hints even without an LLM.
+    Offline engines: bots use GTOBotStrategy, coach uses GTOCoach so the human
+    always has GTO hints even without an LLM.
     """
-    if engine_name == 'ollama':
-        client = OllamaClient(model=model or None)
-        return LLMBotStrategy(client), AICoach(client)
-    if engine_name in ('qwen-plus', 'qwen-max'):
-        client = QwenClient(model=model or engine_name)
-        return LLMBotStrategy(client), AICoach(client)
-    if engine_name == 'gto':
+    if engine_name in ('gto', 'rule-based'):
         return GTOBotStrategy(), GTOCoach()
-    # 'rule-based' (default): bots use GTO+personality strategy, human gets GTO coach hints
+
+    if engine_name == 'ollama':
+        spec = PROVIDERS['ollama']
+        client = OllamaClient(model=model or spec.default_model)
+        return LLMBotStrategy(client), AICoach(client)
+
+    spec = get_provider(engine_name)
+    if spec is not None:
+        client = OpenAICompatibleClient(
+            model=model or spec.default_model,
+            base_url=spec.base_url,
+            api_key=provider_api_key(engine_name),
+        )
+        return LLMBotStrategy(client), AICoach(client)
+
+    # Unknown engine → safe offline default.
+    logger.warning('Unknown engine %r, falling back to GTO', engine_name)
     return GTOBotStrategy(), GTOCoach()
 
 
@@ -315,6 +337,12 @@ class AIConfigRequest(BaseModel):
 @app.get('/ai/config')
 def get_ai_config() -> dict[str, str]:
     return {'engine': _llm_engine, 'model': _llm_model}
+
+
+@app.get('/ai/models')
+def get_ai_models() -> dict[str, Any]:
+    """Return the provider + model registry for the LLMConfigBar dropdown."""
+    return models_payload()
 
 
 @app.post('/ai/config')

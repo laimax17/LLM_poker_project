@@ -36,12 +36,31 @@ export interface GameState {
   max_raises_per_street: number;
 }
 
-export type LLMEngine = 'rule-based' | 'gto' | 'ollama' | 'qwen-plus' | 'qwen-max';
+// 'rule-based' | 'gto' | 'ollama' | provider id ('openrouter' | 'deepseek' | ...)
+export type LLMEngine = string;
 
 export interface LLMConfig {
   engine: LLMEngine;
   model: string;
   status: 'online' | 'offline' | 'loading';
+}
+
+export interface ProviderInfo {
+  id: string;
+  label: string;
+  available: boolean;
+  defaultModel: string;
+}
+
+export interface ModelInfo {
+  id: string;
+  label: string;
+  provider: string;
+}
+
+export interface ModelsRegistry {
+  providers: ProviderInfo[];
+  models: ModelInfo[];
 }
 
 export interface AICoachStat {
