@@ -2,7 +2,10 @@
 
 A cyberpunk-themed Texas Hold'em application featuring a 6-player table (1 Human vs 5 Bots).
 
-> **Note:** The "LLM Persona" integration is currently **disabled**. The bots run on a fast, rule-based algorithmic engine for rapid gameplay testing. LLM integration is planned for a future update.
+> **Note:** Bots default to a fast offline GTO+personality engine. Switch the
+> engine to a cloud provider (OpenRouter / DeepSeek) or local Ollama in the in-game
+> LLMConfigBar to enable LLM-powered agent bots. A built-in **Learning Mode**
+> (live GTO hints, post-hand grading, leak detection) helps you study while you play.
 
 ## 🚀 Features
 
@@ -62,19 +65,24 @@ The following features are planned but not yet enabled:
 
 ## 🤖 AI 引擎配置
 
-游戏支持五种 AI 引擎，可在游戏内 LLMConfigBar 实时切换：
+游戏的 AI 引擎可在游戏内 LLMConfigBar 实时切换。云端 provider 全部走统一的
+OpenAI 兼容客户端——**每个 provider 只需一个 API key，切模型只改一个下拉框**：
 
-| 引擎 | 说明 | 需要网络 |
-|------|------|----------|
+| 引擎 | 说明 | 需要网络 / Key |
+|------|------|----------------|
 | `rule-based` | 5 种人格规则 Bot，开箱即用 | 否 |
 | `gto` | 位置 + 蒙特卡洛 GTO Bot | 否 |
-| `ollama` | 本地 LLM 推理（Qwen/Llama）| 否 |
-| `qwen-plus` | 阿里云 Qwen 云端 API | 是 |
-| `qwen-max` | 阿里云 Qwen Max（最强质量）| 是 |
+| `ollama` | 本地 LLM 推理（Qwen/Llama）| 否（本机推理）|
+| `openrouter` | 一个 key 访问 GPT / Claude / Gemini / DeepSeek / Qwen / Llama | `OPENROUTER_API_KEY` |
+| `deepseek` | DeepSeek 直连，最便宜；deepseek-chat / reasoner | `DEEPSEEK_API_KEY` |
 
-完整配置步骤（含 Ollama 本地部署和 DashScope 云端配置）请参阅：
+> LLM Bot 是**增强提示 + 对手记忆**型 agent：翻后会拿到预先算好的胜率、底池赔率、
+> 位置、牌面质地，以及对手画像（VPIP/PFR/激进度 → LAG/TAG/station/rock），
+> 据此做 +EV 决策。翻前走规则引擎以保证速度。
 
-**[docs/llm-playbook.md](docs/llm-playbook.md)**
+在 `backend/.env` 填入你拥有的 key 即可（见 `backend/.env.example`），未配置 key
+的 provider 在 UI 中显示为 `NO KEY`。新增模型 = 在 `backend/src/ai/providers.py`
+的 `MODELS` 里加一行。
 
 ---
 
