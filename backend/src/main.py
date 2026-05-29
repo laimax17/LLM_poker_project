@@ -34,6 +34,7 @@ from .ai.providers import (
 from .ai.strategy import BotStrategy
 from .ai.opponent_model import OpponentModel
 from .learning import LearningTracker
+from .tournament import TournamentManager, TournamentConfig
 
 # Seed PRNG with OS entropy for unpredictable shuffles every server restart
 random.seed(int.from_bytes(os.urandom(8), 'big'))
@@ -100,6 +101,10 @@ _tracker = LearningTracker()
 # can exploit reads. Always on (independent of learning mode).
 _opponents = OpponentModel()
 _hand_open: bool = False  # True between begin_hand and hand-end commit
+
+# ─── Tournament ───────────────────────────────────────────────────────────────
+_tournament = TournamentManager()
+_pending_level_up: bool = False  # set when a hand starts at a new blind level
 
 
 # ─── Strategy factory ─────────────────────────────────────────────────────────
@@ -183,12 +188,30 @@ def _human_chips() -> int:
     return human.chips if human else 0
 
 
+def _prepare_hand() -> None:
+    """Advance the tournament and set the engine blinds BEFORE start_hand().
+
+    The engine reads small_blind/big_blind inside start_hand(), so escalation
+    happens here. Stores a pending level-up flag for broadcast_state to emit.
+    """
+    global _pending_level_up
+    if _tournament.active:
+        _pending_level_up = _tournament.on_hand_start()
+        sb, bb = _tournament.current_blinds()
+        engine.small_blind = sb
+        engine.big_blind = bb
+
+
 def _begin_hand() -> None:
     """Common per-hand setup for the learning tracker and opponent model."""
     global _hand_open
     _tracker.begin_hand(_human_chips())
     _opponents.begin_hand()
     _hand_open = True
+
+
+def _players_summary() -> list[dict[str, Any]]:
+    return [{'id': p.id, 'name': p.name, 'chips': p.chips} for p in engine.players]
 
 
 def _observe(player_id: str, street: str, action: str) -> None:
@@ -244,15 +267,38 @@ async def broadcast_state() -> None:
         if human and human.chips <= 0:
             await sio.emit('game_over', {'reason': 'eliminated', 'final_chips': 0})
 
+    # ── Tournament: live HUD state + level-up notice ──
+    global _hand_open, _pending_level_up
+    if _tournament.active:
+        await sio.emit('tournament_state', _tournament.state_payload(_players_summary(), 'human'))
+        if _pending_level_up:
+            _pending_level_up = False
+            sb, bb = _tournament.current_blinds()
+            await sio.emit('level_up', {'level': _tournament.level + 1, 'smallBlind': sb, 'bigBlind': bb})
+
     # ── Commit opponent reads once per hand (always on) ──
-    global _hand_open
     if _hand_open and engine.state.value in ('SHOWDOWN', 'FINISHED'):
         _opponents.commit_hand()
         _hand_open = False
+        await _settle_tournament_hand()
 
     # ── Learning Mode hooks ──
     await _maybe_finalize_hand()
     await _maybe_emit_live_hint(state)
+
+
+async def _settle_tournament_hand() -> None:
+    """At hand end: announce eliminations and detect tournament completion."""
+    if not _tournament.active:
+        return
+    summary = _players_summary()
+    for elim in _tournament.record_eliminations(summary):
+        await sio.emit('player_eliminated', elim)
+    if _tournament.is_over(summary):
+        _tournament.active = False
+        await sio.emit('tournament_over', {
+            'standings': _tournament.final_standings(summary),
+        })
 
 
 async def check_ai_turn() -> None:
@@ -348,14 +394,44 @@ async def health() -> dict[str, Any]:
     }
 
 
-@app.post('/start-game')
-async def start_game() -> dict[str, str]:
+class StartGameRequest(BaseModel):
+    num_opponents: int = 5
+    starting_stack: int = 5000
+    blind_speed: str = 'normal'
+    difficulty: str = 'normal'
+
+
+def _setup_new_tournament(req: StartGameRequest) -> None:
+    """Build the table + (re)start the tournament from a setup request."""
+    global _llm_engine, _strategy, _coach
+    cfg = TournamentConfig(
+        num_opponents=req.num_opponents,
+        starting_stack=req.starting_stack,
+        blind_speed=req.blind_speed,
+        difficulty=req.difficulty,
+    )
+    _tournament.configure(cfg)
+    cfg = _tournament.config  # sanitized
+
+    # Difficulty selects the bot engine (LLMConfigBar can still override later).
+    _llm_engine = _tournament.engine_for_difficulty()
+    _strategy, _coach = _build_strategy(_llm_engine, _llm_model)
+    _rebuild_bot_strategies(_llm_engine, _llm_model)
+
     engine.players = []
-    engine.add_player('human', 'PLAYER', 5000)
-    for prof in BOT_PROFILES:
-        engine.add_player(prof['id'], prof['name'], 5000)
+    engine.add_player('human', 'PLAYER', cfg.starting_stack)
+    for prof in BOT_PROFILES[:cfg.num_opponents]:
+        engine.add_player(prof['id'], prof['name'], cfg.starting_stack)
+
     _tracker.reset()
     _opponents.reset()
+    _tournament.start(total_players=len(engine.players))
+
+
+@app.post('/start-game')
+async def start_game(config: StartGameRequest | None = None) -> dict[str, str]:
+    _setup_new_tournament(config or StartGameRequest())
+    _prepare_hand()
     engine.start_hand()
     _begin_hand()
     await broadcast_state()
@@ -430,6 +506,7 @@ async def player_action(sid: str, data: dict[str, Any]) -> None:
 async def start_next_hand(sid: str, data: dict[str, Any]) -> None:
     logger.info('start_next_hand from %s', sid)
     try:
+        _prepare_hand()
         engine.start_hand()
         _begin_hand()
         await broadcast_state()
@@ -514,14 +591,16 @@ async def connect(sid: str, environ: dict[str, Any]) -> None:
 
 @sio.event
 async def reset_game(sid: str, data: dict[str, Any]) -> None:
-    """Full game reset — restart with fresh chips for all players."""
+    """Full game reset — restart the tournament with the same (or new) config."""
     logger.info('reset_game from %s', sid)
-    engine.players = []
-    engine.add_player('human', 'PLAYER', 5000)
-    for prof in BOT_PROFILES:
-        engine.add_player(prof['id'], prof['name'], 5000)
-    _tracker.reset()
-    _opponents.reset()
+    req = StartGameRequest(
+        num_opponents=data.get('num_opponents', _tournament.config.num_opponents),
+        starting_stack=data.get('starting_stack', _tournament.config.starting_stack),
+        blind_speed=data.get('blind_speed', _tournament.config.blind_speed),
+        difficulty=data.get('difficulty', _tournament.config.difficulty),
+    )
+    _setup_new_tournament(req)
+    _prepare_hand()
     engine.start_hand()
     _begin_hand()
     await broadcast_state()
