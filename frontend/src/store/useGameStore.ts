@@ -6,6 +6,9 @@ import type {
   BotThought,
   LLMConfig,
   PlayerAction,
+  LiveHint,
+  HandReview,
+  SessionStats,
 } from '../types';
 import {
   playCardDeal,
@@ -62,6 +65,14 @@ interface GameStore {
   // LLM Config
   llmConfig: LLMConfig;
 
+  // Learning Mode
+  learningMode: boolean;
+  liveHint: LiveHint | null;
+  handReview: HandReview | null;
+  sessionStats: SessionStats | null;
+  showReview: boolean;
+  showStats: boolean;
+
   // Actions
   connect: () => void;
   startGame: () => Promise<void>;
@@ -72,6 +83,9 @@ interface GameStore {
   closeCoach: () => void;
   setLLMConfig: (config: Partial<LLMConfig>) => void;
   setLocale: (locale: string) => void;
+  setLearningMode: (enabled: boolean) => void;
+  closeReview: () => void;
+  toggleStats: () => void;
 }
 
 export const useGameStore = create<GameStore>((set, get) => ({
@@ -94,6 +108,12 @@ export const useGameStore = create<GameStore>((set, get) => ({
     model: '',
     status: 'online',
   },
+  learningMode: false,
+  liveHint: null,
+  handReview: null,
+  sessionStats: null,
+  showReview: false,
+  showStats: false,
 
   connect: () => {
     const socket = io(BACKEND_URL, {
@@ -223,6 +243,23 @@ export const useGameStore = create<GameStore>((set, get) => ({
       });
     });
 
+    // ── Learning Mode events ──
+    socket.on('live_hint', (data: LiveHint) => {
+      set({ liveHint: data });
+    });
+
+    socket.on('hand_review', (data: HandReview) => {
+      // Only auto-open the review modal when there is something to learn from.
+      set(state => ({
+        handReview: data,
+        showReview: state.learningMode && data.decisions.length > 0,
+      }));
+    });
+
+    socket.on('session_stats', (data: SessionStats) => {
+      set({ sessionStats: data });
+    });
+
     socket.on('llm_status', (data: { status: 'online' | 'offline' }) => {
       set(state => ({
         llmConfig: { ...state.llmConfig, status: data.status },
@@ -265,7 +302,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
         action: action as PlayerAction['action'],
         amount,
       };
-      set({ currentAction: humanAction, actionInFlight: true });
+      // Clear the live hint immediately — it described the pre-action spot.
+      set({ currentAction: humanAction, actionInFlight: true, liveHint: null });
       setTimeout(() => {
         set(state => {
           if (state.currentAction === humanAction) return { currentAction: null };
@@ -314,4 +352,15 @@ export const useGameStore = create<GameStore>((set, get) => ({
       socket.emit('set_llm_config', { engine: newConfig.engine, model: newConfig.model });
     }
   },
+
+  setLearningMode: (enabled: boolean) => {
+    const { socket } = get();
+    set({ learningMode: enabled });
+    if (!enabled) set({ liveHint: null, showReview: false });
+    if (socket) socket.emit('set_learning_mode', { enabled });
+  },
+
+  closeReview: () => set({ showReview: false }),
+
+  toggleStats: () => set(state => ({ showStats: !state.showStats })),
 }));

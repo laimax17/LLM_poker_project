@@ -25,6 +25,7 @@ from .ai.gto_coach import GTOCoach
 from .ai.ollama import OllamaClient
 from .ai.qwen import QwenClient
 from .ai.strategy import BotStrategy
+from .learning import LearningTracker
 
 # Seed PRNG with OS entropy for unpredictable shuffles every server restart
 random.seed(int.from_bytes(os.urandom(8), 'big'))
@@ -76,6 +77,15 @@ _coach: Optional[AICoach | GTOCoach] = None
 _llm_engine: str = os.environ.get('DEFAULT_AI_ENGINE', 'rule-based')
 _llm_model: str = ''
 _locale: str = 'en'  # current UI locale ('en' or 'zh'), affects bot chat language
+
+# ─── Learning Mode state ──────────────────────────────────────────────────────
+# Always-offline GTO coach used for live hints + decision grading, independent
+# of the user-selected bot/coach engine (so hints work even on LLM engines).
+_learning_mode: bool = False
+_live_coach = GTOCoach()
+_live_coach.N_SIM = 250  # fewer sims → snappier live hints; grading reuses the cache
+_pending_hint: Optional[dict[str, Any]] = None  # GTO hint for the human's current turn
+_tracker = LearningTracker()
 
 
 # ─── Strategy factory ─────────────────────────────────────────────────────────
@@ -129,6 +139,54 @@ def _get_strategy(bot_id: str) -> BotStrategy:
 
 
 # ─── Helpers ──────────────────────────────────────────────────────────────────
+def _is_human_turn() -> bool:
+    """True if it is the human's turn and the hand is still in progress."""
+    if engine.state.value in ('SHOWDOWN', 'FINISHED'):
+        return False
+    try:
+        return engine.players[engine.current_player_idx].id == 'human'
+    except IndexError:
+        return False
+
+
+def _human_chips() -> int:
+    human = next((p for p in engine.players if p.id == 'human'), None)
+    return human.chips if human else 0
+
+
+async def _maybe_emit_live_hint(state: dict[str, Any]) -> None:
+    """When learning mode is on and it's the human's turn, compute and emit a
+    compact GTO hint (and cache it for grading the human's upcoming action)."""
+    global _pending_hint
+    if not _learning_mode or not _is_human_turn():
+        return
+    try:
+        hint = await _live_coach.analyze(state, 'human')
+    except Exception as exc:  # pragma: no cover - defensive
+        logger.warning('live hint analyze failed: %s', exc)
+        return
+    _pending_hint = hint
+    await sio.emit('live_hint', {
+        'recommendation': hint.get('recommendation'),
+        'recommendedAmount': hint.get('recommendedAmount'),
+        'stats': hint.get('stats', []),
+        'isPreflop': state.get('state') == 'PREFLOP',
+    })
+
+
+async def _maybe_finalize_hand() -> None:
+    """When learning mode is on and a hand has ended, emit the hand review and
+    refreshed session stats."""
+    if not _learning_mode:
+        return
+    if engine.state.value not in ('SHOWDOWN', 'FINISHED'):
+        return
+    review = _tracker.finalize_hand(_human_chips())
+    if review is not None:
+        await sio.emit('hand_review', review)
+        await sio.emit('session_stats', _tracker.session_stats())
+
+
 async def broadcast_state() -> None:
     """Emit game state (human POV + is_dealer augmentation) to all clients."""
     state = engine.get_public_game_state('human')
@@ -143,6 +201,10 @@ async def broadcast_state() -> None:
         human = next((p for p in engine.players if p.id == 'human'), None)
         if human and human.chips <= 0:
             await sio.emit('game_over', {'reason': 'eliminated', 'final_chips': 0})
+
+    # ── Learning Mode hooks ──
+    await _maybe_finalize_hand()
+    await _maybe_emit_live_hint(state)
 
 
 async def check_ai_turn() -> None:
@@ -237,7 +299,9 @@ async def start_game() -> dict[str, str]:
     engine.add_player('human', 'PLAYER', 5000)
     for prof in BOT_PROFILES:
         engine.add_player(prof['id'], prof['name'], 5000)
+    _tracker.reset()
     engine.start_hand()
+    _tracker.begin_hand(_human_chips())
     await broadcast_state()
     await check_ai_turn()
     return {'status': 'started'}
@@ -275,6 +339,15 @@ async def player_action(sid: str, data: dict[str, Any]) -> None:
         if current_player.id != 'human':
             await sio.emit('error', {'message': 'Not your turn!'}, to=sid)
             return
+
+        # ── Learning Mode: grade this decision against the GTO baseline ──
+        global _pending_hint
+        if _learning_mode:
+            pre_state = engine.get_public_game_state('human')
+            hint = _pending_hint or await _live_coach.analyze(pre_state, 'human')
+            _tracker.record_decision(hint, pre_state, action, amount)
+            _pending_hint = None
+
         engine.player_action('human', action, amount)
         await sio.emit('player_acted', {
             'player_id': 'human',
@@ -294,6 +367,7 @@ async def start_next_hand(sid: str, data: dict[str, Any]) -> None:
     logger.info('start_next_hand from %s', sid)
     try:
         engine.start_hand()
+        _tracker.begin_hand(_human_chips())
         await broadcast_state()
         await check_ai_turn()
     except ValueError as exc:
@@ -382,9 +456,23 @@ async def reset_game(sid: str, data: dict[str, Any]) -> None:
     engine.add_player('human', 'PLAYER', 5000)
     for prof in BOT_PROFILES:
         engine.add_player(prof['id'], prof['name'], 5000)
+    _tracker.reset()
     engine.start_hand()
+    _tracker.begin_hand(_human_chips())
     await broadcast_state()
     await check_ai_turn()
+
+
+@sio.event
+async def set_learning_mode(sid: str, data: dict[str, Any]) -> None:
+    """Enable/disable Learning Mode (live hints + post-hand review + stats)."""
+    global _learning_mode
+    _learning_mode = bool(data.get('enabled', False))
+    logger.info('Learning mode set to %s by %s', _learning_mode, sid)
+    if _learning_mode:
+        # Emit a hint immediately if it's already the human's turn.
+        await _maybe_emit_live_hint(engine.get_public_game_state('human'))
+        await sio.emit('session_stats', _tracker.session_stats(), to=sid)
 
 
 @sio.event

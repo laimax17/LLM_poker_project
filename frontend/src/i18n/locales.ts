@@ -68,6 +68,23 @@ const locales: Record<Locale, Record<string, string>> = {
     // Showdown
     'showdown.label': '◈ SHOWDOWN ◈',
 
+    // Learning Mode
+    'learn.toggle': 'LEARN',
+    'learn.statsBtn': '📊 STATS',
+    'learn.hintTitle': '◈ GTO HINT',
+    'learn.reviewTitle': '◈ HAND REVIEW',
+    'learn.netResult': 'NET:',
+    'learn.grade.correct': 'CORRECT',
+    'learn.grade.marginal': 'MARGINAL',
+    'learn.grade.mistake': 'MISTAKE',
+    'learn.caveat': 'Grades are a GTO-baseline approximation, not solver-exact. Use as a guide.',
+    'learn.statsTitle': '◈ SESSION STATS',
+    'learn.statsEmpty': 'Play a few hands to see your stats.',
+    'learn.handsPlayed': 'HANDS',
+    'learn.net': 'NET',
+    'learn.leaksTitle': '◈ LEAK DETECTION',
+    'learn.leaksEmpty': 'No leaks detected yet — keep playing.',
+
     // Language
     'lang.select': 'SELECT LANGUAGE',
   },
@@ -127,6 +144,23 @@ const locales: Record<Locale, Record<string, string>> = {
     'coach.empty': '点击 ◈ AI分析 获取建议',
 
     'showdown.label': '◈ 摊牌 ◈',
+
+    // Learning Mode
+    'learn.toggle': '学习',
+    'learn.statsBtn': '📊 统计',
+    'learn.hintTitle': '◈ GTO 提示',
+    'learn.reviewTitle': '◈ 手牌复盘',
+    'learn.netResult': '本手盈亏：',
+    'learn.grade.correct': '正确',
+    'learn.grade.marginal': '尚可',
+    'learn.grade.mistake': '失误',
+    'learn.caveat': '评分基于 GTO 基准近似，非求解器精确值，仅供参考。',
+    'learn.statsTitle': '◈ 会话统计',
+    'learn.statsEmpty': '打几手牌后即可查看统计数据。',
+    'learn.handsPlayed': '手数',
+    'learn.net': '盈亏',
+    'learn.leaksTitle': '◈ 漏洞检测',
+    'learn.leaksEmpty': '暂未检测到明显漏洞，继续加油。',
 
     'lang.select': '选择语言',
   },

@@ -6,6 +6,9 @@ import ActionBar from './components/layout/ActionBar';
 import LLMConfigBar from './components/layout/LLMConfigBar';
 import AICoachPanel from './components/ai-coach/AICoachPanel';
 import ToastNotification from './components/layout/ToastNotification';
+import LiveHintBar from './components/learning/LiveHintBar';
+import HandReviewModal from './components/learning/HandReviewModal';
+import SessionStatsPanel from './components/learning/SessionStatsPanel';
 
 function App() {
   const { t, locale, setLocale } = useT();
@@ -29,6 +32,15 @@ function App() {
     handCount,
     actionInFlight,
     isGameOver: isPlayerEliminated,
+    learningMode,
+    setLearningMode,
+    liveHint,
+    handReview,
+    showReview,
+    closeReview,
+    sessionStats,
+    showStats,
+    toggleStats,
   } = useGameStore();
 
   const [showMenu, setShowMenu] = useState(false);
@@ -237,6 +249,11 @@ function App() {
               <PokerTable gameState={gameState} handCount={handCount} />
             </div>
 
+            {/* Live GTO hint — Learning Mode only, while it's the human's turn */}
+            {learningMode && liveHint && isHumanTurn && (
+              <LiveHintBar hint={liveHint} />
+            )}
+
             {/* Action bar */}
             <ActionBar
               gameState={gameState}
@@ -267,10 +284,21 @@ function App() {
             <LLMConfigBar
               config={llmConfig}
               onConfigChange={setLLMConfig}
+              learningMode={learningMode}
+              onLearningModeChange={setLearningMode}
+              onToggleStats={toggleStats}
             />
           </>
         )}
       </main>
+
+      {/* ─── Learning Mode: post-hand review + session stats ─── */}
+      {showReview && handReview && (
+        <HandReviewModal review={handReview} onClose={closeReview} />
+      )}
+      {showStats && sessionStats && (
+        <SessionStatsPanel stats={sessionStats} onClose={toggleStats} />
+      )}
 
       {/* ─── Disconnect overlay — covers table when socket lost during gameplay ─── */}
       {gameState && !isConnected && (

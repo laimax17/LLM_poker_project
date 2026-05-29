@@ -57,6 +57,55 @@ export interface AICoachAdvice {
   stats: AICoachStat[];
 }
 
+// ─── Learning Mode ──────────────────────────────────────────────────────────
+
+export interface LiveHint {
+  recommendation: 'FOLD' | 'CALL' | 'CHECK' | 'RAISE';
+  recommendedAmount?: number | null;
+  stats: AICoachStat[];
+  isPreflop: boolean;
+}
+
+export type DecisionGrade = 'correct' | 'marginal' | 'mistake';
+
+export interface DecisionRecord {
+  street: string;
+  handStr: string;
+  boardStr: string;
+  pot: number;
+  toCall: number;
+  recommendation: string;
+  recommendedAmount?: number | null;
+  position: string;
+  action: string;
+  amount: number;
+  grade: DecisionGrade;
+  explanation: string;
+}
+
+export interface HandReview {
+  handNumber: number;
+  netChips: number;
+  decisions: DecisionRecord[];
+}
+
+export interface SessionLeak {
+  text: string;
+  severity: 'good' | 'bad' | 'neutral';
+}
+
+export interface SessionStats {
+  handsPlayed: number;
+  vpip: number;
+  pfr: number;
+  aggressionFactor: number;
+  netChips: number;
+  correct: number;
+  marginal: number;
+  mistake: number;
+  leaks: SessionLeak[];
+}
+
 export interface BotThought {
   player_id: string;
   thought: string;

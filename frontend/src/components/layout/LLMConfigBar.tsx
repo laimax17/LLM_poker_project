@@ -1,10 +1,14 @@
 import React, { useState } from 'react';
 import type { LLMConfig, LLMEngine } from '../../types';
 import { setSoundEnabled } from '../../utils/sound';
+import { useT } from '../../i18n/I18nContext';
 
 interface LLMConfigBarProps {
   config: LLMConfig;
   onConfigChange: (config: Partial<LLMConfig>) => void;
+  learningMode: boolean;
+  onLearningModeChange: (enabled: boolean) => void;
+  onToggleStats: () => void;
 }
 
 const OLLAMA_MODELS = ['qwen2.5:7b', 'qwen2.5:14b', 'llama3.1:8b'];
@@ -35,7 +39,14 @@ const labelStyle: React.CSSProperties = {
   fontFamily: 'var(--font-label)',
 };
 
-const LLMConfigBar: React.FC<LLMConfigBarProps> = ({ config, onConfigChange }) => {
+const LLMConfigBar: React.FC<LLMConfigBarProps> = ({
+  config,
+  onConfigChange,
+  learningMode,
+  onLearningModeChange,
+  onToggleStats,
+}) => {
+  const { t } = useT();
   const showModelSelect = config.engine === 'ollama';
   const isOnline = config.status === 'online';
   const [soundOn, setSoundOn] = useState(true);
@@ -111,8 +122,38 @@ const LLMConfigBar: React.FC<LLMConfigBarProps> = ({ config, onConfigChange }) =
           </span>
         )}
 
-        {/* SFX toggle */}
+        {/* Learning mode + stats + SFX toggle */}
         <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 10 }}>
+          <button
+            onClick={() => onLearningModeChange(!learningMode)}
+            style={{
+              ...labelStyle,
+              cursor: 'pointer',
+              background: 'none',
+              border: `1px solid ${learningMode ? 'var(--gold)' : 'var(--brown)'}`,
+              color: learningMode ? 'var(--gold)' : 'var(--gold-d)',
+              padding: '4px 7px',
+            }}
+          >
+            {learningMode ? '◉' : '○'} {t('learn.toggle')}
+          </button>
+
+          {learningMode && (
+            <button
+              onClick={onToggleStats}
+              style={{
+                ...labelStyle,
+                cursor: 'pointer',
+                background: 'none',
+                border: '1px solid var(--brown)',
+                color: 'var(--gold-d)',
+                padding: '4px 7px',
+              }}
+            >
+              {t('learn.statsBtn')}
+            </button>
+          )}
+
           <button
             onClick={toggleSound}
             style={{
