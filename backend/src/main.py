@@ -32,6 +32,7 @@ from .ai.providers import (
     provider_available,
 )
 from .ai.strategy import BotStrategy
+from .ai.opponent_model import OpponentModel
 from .learning import LearningTracker
 
 # Seed PRNG with OS entropy for unpredictable shuffles every server restart
@@ -93,6 +94,12 @@ _live_coach = GTOCoach()
 _live_coach.N_SIM = 250  # fewer sims → snappier live hints; grading reuses the cache
 _pending_hint: Optional[dict[str, Any]] = None  # GTO hint for the human's current turn
 _tracker = LearningTracker()
+
+# ─── Opponent modeling (agent memory) ─────────────────────────────────────────
+# Tracks every player's tendencies across the session; fed to LLM bots so they
+# can exploit reads. Always on (independent of learning mode).
+_opponents = OpponentModel()
+_hand_open: bool = False  # True between begin_hand and hand-end commit
 
 
 # ─── Strategy factory ─────────────────────────────────────────────────────────
@@ -176,6 +183,19 @@ def _human_chips() -> int:
     return human.chips if human else 0
 
 
+def _begin_hand() -> None:
+    """Common per-hand setup for the learning tracker and opponent model."""
+    global _hand_open
+    _tracker.begin_hand(_human_chips())
+    _opponents.begin_hand()
+    _hand_open = True
+
+
+def _observe(player_id: str, street: str, action: str) -> None:
+    """Feed one observed action into the opponent model (always on)."""
+    _opponents.observe(player_id, street, action)
+
+
 async def _maybe_emit_live_hint(state: dict[str, Any]) -> None:
     """When learning mode is on and it's the human's turn, compute and emit a
     compact GTO hint (and cache it for grading the human's upcoming action)."""
@@ -224,6 +244,12 @@ async def broadcast_state() -> None:
         if human and human.chips <= 0:
             await sio.emit('game_over', {'reason': 'eliminated', 'final_chips': 0})
 
+    # ── Commit opponent reads once per hand (always on) ──
+    global _hand_open
+    if _hand_open and engine.state.value in ('SHOWDOWN', 'FINISHED'):
+        _opponents.commit_hand()
+        _hand_open = False
+
     # ── Learning Mode hooks ──
     await _maybe_finalize_hand()
     await _maybe_emit_live_hint(state)
@@ -253,9 +279,14 @@ async def check_ai_turn() -> None:
             is_llm_call = isinstance(strategy, LLMBotStrategy) and state_for_bot.get('state') != 'PREFLOP'
             if is_llm_call:
                 await sio.emit('ai_thinking', {'player_id': current_p.id})
+            bot_street = state_for_bot.get('state', 'PREFLOP')
             try:
                 if isinstance(strategy, LLMBotStrategy):
-                    decision = await strategy.decide_async(state_for_bot, current_p.id)
+                    active_ids = [p.id for p in engine.players if p.is_active]
+                    profiles = _opponents.profiles_except(current_p.id, only_active=active_ids)
+                    decision = await strategy.decide_async(
+                        state_for_bot, current_p.id, opponents=profiles
+                    )
                 elif isinstance(strategy, (RuleBasedStrategy, GTOBotStrategy)):
                     decision = strategy.decide(state_for_bot, current_p.id, locale=_locale)
                 else:
@@ -286,6 +317,8 @@ async def check_ai_turn() -> None:
                     engine.player_action(current_p.id, 'fold', 0)
                 except Exception:
                     pass
+
+            _observe(current_p.id, bot_street, actual_action)
 
             await sio.emit('player_acted', {
                 'player_id': current_p.id,
@@ -322,8 +355,9 @@ async def start_game() -> dict[str, str]:
     for prof in BOT_PROFILES:
         engine.add_player(prof['id'], prof['name'], 5000)
     _tracker.reset()
+    _opponents.reset()
     engine.start_hand()
-    _tracker.begin_hand(_human_chips())
+    _begin_hand()
     await broadcast_state()
     await check_ai_turn()
     return {'status': 'started'}
@@ -376,7 +410,9 @@ async def player_action(sid: str, data: dict[str, Any]) -> None:
             _tracker.record_decision(hint, pre_state, action, amount)
             _pending_hint = None
 
+        human_street = engine.state.value
         engine.player_action('human', action, amount)
+        _observe('human', human_street, action)
         await sio.emit('player_acted', {
             'player_id': 'human',
             'player_name': 'PLAYER',
@@ -395,7 +431,7 @@ async def start_next_hand(sid: str, data: dict[str, Any]) -> None:
     logger.info('start_next_hand from %s', sid)
     try:
         engine.start_hand()
-        _tracker.begin_hand(_human_chips())
+        _begin_hand()
         await broadcast_state()
         await check_ai_turn()
     except ValueError as exc:
@@ -485,8 +521,9 @@ async def reset_game(sid: str, data: dict[str, Any]) -> None:
     for prof in BOT_PROFILES:
         engine.add_player(prof['id'], prof['name'], 5000)
     _tracker.reset()
+    _opponents.reset()
     engine.start_hand()
-    _tracker.begin_hand(_human_chips())
+    _begin_hand()
     await broadcast_state()
     await check_ai_turn()
 
