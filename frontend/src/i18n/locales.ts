@@ -85,6 +85,30 @@ const locales: Record<Locale, Record<string, string>> = {
     'learn.leaksTitle': '◈ LEAK DETECTION',
     'learn.leaksEmpty': 'No leaks detected yet — keep playing.',
 
+    // Setup lobby
+    'setup.opponents': 'OPPONENTS',
+    'setup.stack': 'STARTING STACK',
+    'setup.speed': 'BLIND SPEED',
+    'setup.speed.turbo': 'TURBO',
+    'setup.speed.normal': 'NORMAL',
+    'setup.speed.slow': 'SLOW',
+    'setup.difficulty': 'DIFFICULTY',
+    'setup.diff.easy': 'EASY',
+    'setup.diff.normal': 'NORMAL',
+    'setup.diff.hard': 'HARD',
+
+    // Tournament
+    'tour.level': 'LEVEL',
+    'tour.blinds': 'BLINDS',
+    'tour.nextLevel': 'NEXT LVL',
+    'tour.remaining': 'LEFT',
+    'tour.place': 'RANK',
+    'tour.youWin': '🏆 YOU WIN!',
+    'tour.over': 'TOURNAMENT OVER',
+    'tour.yourFinish': 'YOU FINISHED',
+    'tour.playAgain': '▶ PLAY AGAIN',
+    'tour.blindsUp': 'BLINDS UP',
+
     // Language
     'lang.select': 'SELECT LANGUAGE',
   },
@@ -161,6 +185,30 @@ const locales: Record<Locale, Record<string, string>> = {
     'learn.net': '盈亏',
     'learn.leaksTitle': '◈ 漏洞检测',
     'learn.leaksEmpty': '暂未检测到明显漏洞，继续加油。',
+
+    // Setup lobby
+    'setup.opponents': '对手数量',
+    'setup.stack': '起始筹码',
+    'setup.speed': '升盲速度',
+    'setup.speed.turbo': '极速',
+    'setup.speed.normal': '标准',
+    'setup.speed.slow': '慢速',
+    'setup.difficulty': '难度',
+    'setup.diff.easy': '简单',
+    'setup.diff.normal': '普通',
+    'setup.diff.hard': '困难',
+
+    // Tournament
+    'tour.level': '级别',
+    'tour.blinds': '盲注',
+    'tour.nextLevel': '下一级',
+    'tour.remaining': '存活',
+    'tour.place': '排名',
+    'tour.youWin': '🏆 你赢了！',
+    'tour.over': '锦标赛结束',
+    'tour.yourFinish': '你的名次',
+    'tour.playAgain': '▶ 再来一局',
+    'tour.blindsUp': '升盲',
 
     'lang.select': '选择语言',
   },

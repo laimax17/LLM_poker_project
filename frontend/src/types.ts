@@ -132,6 +132,40 @@ export interface BotThought {
   fading?: boolean;
 }
 
+// ─── Tournament ───────────────────────────────────────────────────────────────
+
+export interface GameSetupConfig {
+  num_opponents: number;
+  starting_stack: number;
+  blind_speed: 'turbo' | 'normal' | 'slow';
+  difficulty: 'easy' | 'normal' | 'hard';
+}
+
+export interface TournamentState {
+  active: boolean;
+  level: number;
+  smallBlind: number;
+  bigBlind: number;
+  handsUntilNextLevel: number;
+  playersRemaining: number;
+  totalPlayers: number;
+  yourPlace: number;
+  handCount: number;
+}
+
+export interface StandingEntry {
+  id: string;
+  name: string;
+  place: number;
+  chips: number;
+}
+
+export interface EliminationEvent {
+  id: string;
+  name: string;
+  place: number;
+}
+
 export interface PlayerAction {
   player_id: string;
   player_name: string;
