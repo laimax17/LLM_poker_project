@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useGameStore } from './store/useGameStore';
 import { useT } from './i18n/I18nContext';
 import PokerTable from './components/table/PokerTable';
@@ -13,6 +13,8 @@ import SetupLobby from './components/lobby/SetupLobby';
 import TournamentHUD from './components/table/TournamentHUD';
 import StandingsModal from './components/table/StandingsModal';
 import AllInEquityOverlay from './components/table/AllInEquityOverlay';
+import CareerPanel from './components/career/CareerPanel';
+import { addResult } from './utils/career';
 
 function App() {
   const { t, locale, setLocale } = useT();
@@ -54,6 +56,23 @@ function App() {
   } = useGameStore();
 
   const [showMenu, setShowMenu] = useState(false);
+  const [showCareer, setShowCareer] = useState(false);
+  const recordedStandingsRef = useRef<unknown>(null);
+
+  // Record each finished tournament once into local career history.
+  useEffect(() => {
+    if (!standings || recordedStandingsRef.current === standings) return;
+    recordedStandingsRef.current = standings;
+    const me = standings.find((s) => s.id === 'human');
+    if (me) {
+      addResult({
+        date: Date.now(),
+        place: me.place,
+        totalPlayers: standings.length,
+        won: me.place === 1,
+      });
+    }
+  }, [standings]);
   // Delay "Next Hand" button by 2.5s after hand ends so player can see the result
   const [showNextHandBtn, setShowNextHandBtn] = useState(false);
 
@@ -245,6 +264,23 @@ function App() {
             </div>
 
             <SetupLobby onStart={(cfg) => startGame(cfg)} />
+
+            <button
+              onClick={() => setShowCareer(true)}
+              style={{
+                background: 'transparent',
+                border: '2px solid var(--brown)',
+                color: 'var(--gold-d)',
+                fontSize: 8,
+                padding: '8px 16px',
+                cursor: 'pointer',
+                fontFamily: 'var(--font-label)',
+                letterSpacing: 1,
+                marginTop: 4,
+              }}
+            >
+              {t('career.button')}
+            </button>
           </div>
         ) : (
           <>
@@ -318,6 +354,9 @@ function App() {
           onPlayAgain={() => { closeStandings(); resetGame(); }}
         />
       )}
+
+      {/* ─── Career panel ─── */}
+      {showCareer && <CareerPanel onClose={() => setShowCareer(false)} />}
 
       {/* ─── All-in equity overlay ─── */}
       {allinEquity && <AllInEquityOverlay data={allinEquity} />}

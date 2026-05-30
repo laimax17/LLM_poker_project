@@ -112,6 +112,18 @@ const locales: Record<Locale, Record<string, string>> = {
     // All-in
     'allin.title': 'ALL-IN EQUITY',
 
+    // Career
+    'career.button': '◈ CAREER',
+    'career.title': '◈ CAREER',
+    'career.empty': 'No tournaments yet. Play one to start your record.',
+    'career.played': 'PLAYED',
+    'career.wins': 'WINS',
+    'career.winRate': 'WIN RATE',
+    'career.best': 'BEST',
+    'career.avg': 'AVG PLACE',
+    'career.podiums': 'PODIUMS',
+    'career.achievements': '◈ ACHIEVEMENTS',
+
     // Language
     'lang.select': 'SELECT LANGUAGE',
   },
@@ -215,6 +227,18 @@ const locales: Record<Locale, Record<string, string>> = {
 
     // All-in
     'allin.title': '全下胜率',
+
+    // Career
+    'career.button': '◈ 生涯',
+    'career.title': '◈ 生涯',
+    'career.empty': '还没有参赛记录，打一局开始记录吧。',
+    'career.played': '参赛',
+    'career.wins': '夺冠',
+    'career.winRate': '胜率',
+    'career.best': '最佳',
+    'career.avg': '平均名次',
+    'career.podiums': '前三',
+    'career.achievements': '◈ 成就',
 
     'lang.select': '选择语言',
   },
