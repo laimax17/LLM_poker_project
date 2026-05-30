@@ -387,7 +387,7 @@ async def check_ai_turn() -> None:
             state_for_bot = engine.get_public_game_state(current_p.id)
 
             strategy = _get_strategy(current_p.id)
-            is_llm_call = isinstance(strategy, LLMBotStrategy) and state_for_bot.get('state') != 'PREFLOP'
+            is_llm_call = isinstance(strategy, LLMBotStrategy)
             if is_llm_call:
                 await sio.emit('ai_thinking', {'player_id': current_p.id})
             bot_street = state_for_bot.get('state', 'PREFLOP')

@@ -8,6 +8,7 @@ import json
 import logging
 from typing import Any
 
+from .analytics import compute_analytics
 from .llm_client import LLMClient
 
 logger = logging.getLogger(__name__)
@@ -75,22 +76,34 @@ class AICoach:
             return self._fallback()
 
     def _build_prompt(self, game_state: dict[str, Any], player_id: str) -> str:
-        players = game_state.get('players', [])
-        me = next((p for p in players if p['id'] == player_id), {})
-        opponents = [p for p in players if p['id'] != player_id]
-        active_opponents = sum(1 for p in opponents if p.get('is_active'))
-        to_call = max(0, game_state.get('current_bet', 0) - me.get('current_bet', 0))
-        return (
-            f"当前街道: {game_state.get('state')}\n"
-            f"底池: ${game_state.get('pot')}\n"
-            f"需要跟注: ${to_call}\n"
-            f"最小加注: ${game_state.get('min_raise')}\n"
-            f"我的手牌: {me.get('hand')} (请用花色符号格式引用)\n"
-            f"公共牌: {game_state.get('community_cards')}\n"
-            f"我的筹码: ${me.get('chips')}\n"
-            f"活跃对手数: {active_opponents}\n"
-            "请提供详细的教学分析："
-        )
+        # Ground the LLM in pre-computed numbers (equity / pot odds / position /
+        # board texture / GTO range freq) so its analysis is accurate, not guessed.
+        a = compute_analytics(game_state, player_id)
+        if not a:
+            return '请根据当前德州扑克局面提供教学分析。'
+
+        lines = [
+            f"当前街道: {a['street']}",
+            f"我的位置: {a['position_label']}",
+            f"我的手牌: {a['hand_str']}（请用 A♠ 这样的花色符号格式引用）",
+            f"公共牌: {a['board_str']}",
+            f"底池: ${a['pot']}，需要跟注: ${a['to_call']}，底池赔率: {a['pot_odds']:.0%}",
+            f"最小加注: ${a['min_raise']}，我的筹码: ${a['my_chips']}",
+            f"活跃对手数: {a['active_opponents']}",
+        ]
+        if a['street'] == 'PREFLOP':
+            lines.append(
+                f"GTO 参考：{a.get('combo', '')} 在 {a['position']} 开池频率 "
+                f"{a.get('open_freq', 0):.0%}，跟注频率 {a.get('call_freq', 0):.0%}"
+            )
+        else:
+            draws = '、'.join(a.get('board_draws', [])) or '干燥'
+            lines.append(
+                f"胜率估计: {a.get('equity', 0):.0%}（蒙特卡洛），"
+                f"牌面: {draws}（湿润度 {a.get('board_wetness', 0):.0%}）"
+            )
+        lines.append('请基于以上数据提供详细的教学分析：')
+        return '\n'.join(lines)
 
     def _parse_response(self, raw: str) -> dict[str, Any]:
         json_str = _extract_json(raw)

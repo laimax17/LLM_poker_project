@@ -15,7 +15,7 @@ from typing import Any, List, Optional
 from ..engine import Card, Rank, Suit
 from .board_texture import analyze_board
 from .equity import estimate_equity
-from .preflop_ranges import get_hand_combo, get_position
+from .preflop_ranges import get_hand_combo, get_position, preflop_open_freq, preflop_call_freq
 
 logger = logging.getLogger(__name__)
 
@@ -102,6 +102,10 @@ def compute_analytics(game_state: dict[str, Any], player_id: str) -> dict[str, A
 
     if len(hand) == 2:
         out['combo'] = get_hand_combo(hand[0], hand[1])
+
+    if street == 'PREFLOP' and len(hand) == 2:
+        out['open_freq'] = preflop_open_freq(out['combo'], position)
+        out['call_freq'] = preflop_call_freq(out['combo'], position)
 
     if street != 'PREFLOP' and len(hand) == 2:
         equity = estimate_equity(hand, board, max(1, active_opponents), n_sim=BOT_EQUITY_SIMS)

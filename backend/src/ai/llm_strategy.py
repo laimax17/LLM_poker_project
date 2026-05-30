@@ -57,11 +57,11 @@ class LLMBotStrategy(BotStrategy):
         player_id: str,
         opponents: Optional[dict[str, dict[str, Any]]] = None,
     ) -> AIThought:
-        """PREFLOP → rule-based; post-flop → enriched-prompt LLM (with fallback)."""
-        street: str = game_state.get('state', 'PREFLOP')
-        if street == 'PREFLOP':
-            return self._rule_based.decide(game_state, player_id)
+        """LLM decision for every street, enriched with pre-computed analytics.
 
+        Falls back to RuleBasedStrategy on any error/timeout so the game never
+        stalls.
+        """
         try:
             user_prompt = self._build_prompt(game_state, player_id, opponents or {})
             raw = await self.llm.chat(BOT_SYSTEM_PROMPT, user_prompt)
@@ -75,6 +75,19 @@ class LLMBotStrategy(BotStrategy):
             )
             return self._rule_based.decide(game_state, player_id)
 
+    @staticmethod
+    def _opponent_lines(opponents: dict[str, dict[str, Any]]) -> str:
+        if not opponents:
+            return '  - 暂无对手数据'
+        return '\n'.join(
+            f"  - {pid}: {prof.get('label')}"
+            + (
+                f" (VPIP {prof['vpip']:.0%}/PFR {prof['pfr']:.0%}/AF {prof['af']}, {prof['hands']}手)"
+                if 'vpip' in prof else f" ({prof.get('hands', 0)}手, 样本不足)"
+            )
+            for pid, prof in opponents.items()
+        )
+
     def _build_prompt(
         self,
         game_state: dict[str, Any],
@@ -83,26 +96,26 @@ class LLMBotStrategy(BotStrategy):
     ) -> str:
         a = compute_analytics(game_state, player_id)
         if not a:
-            # Analytics unavailable — fall back to a minimal prompt.
             return '请根据当前德州扑克局面给出决策。'
+        opp_lines = self._opponent_lines(opponents)
+
+        if a['street'] == 'PREFLOP':
+            return (
+                f"当前局面（翻牌前）：\n"
+                f"- 我的位置: {a['position_label']}\n"
+                f"- 我的手牌: {a['hand_str']}（{a.get('combo', '')}）\n"
+                f"- 底池: {a['pot']}，需要跟注: {a['to_call']}，底池赔率: {a['pot_odds']:.0%}\n"
+                f"- 我的筹码: {a['my_chips']}，最小加注: {a['min_raise']}，本轮加注次数: {a['raise_count']}\n"
+                f"- GTO 参考：{a.get('combo', '')} 在 {a['position']} 开池频率 "
+                f"{a.get('open_freq', 0):.0%}，面对加注跟注频率 {a.get('call_freq', 0):.0%}\n"
+                f"- 活跃对手数: {a['active_opponents']}\n"
+                f"- 对手画像:\n{opp_lines}\n"
+                f"请据此做翻牌前决策；对偏紧(rock/TAG)的对手可适当扩大偷盲/3bet。"
+            )
 
         equity = a.get('equity')
         equity_line = f"{equity:.0%}" if equity is not None else '未知'
         draws = '、'.join(a.get('board_draws', [])) or '干燥'
-
-        # Opponent reads
-        if opponents:
-            opp_lines = '\n'.join(
-                f"  - {pid}: {prof.get('label')}"
-                + (
-                    f" (VPIP {prof['vpip']:.0%}/PFR {prof['pfr']:.0%}/AF {prof['af']}, {prof['hands']}手)"
-                    if 'vpip' in prof else f" ({prof.get('hands', 0)}手, 样本不足)"
-                )
-                for pid, prof in opponents.items()
-            )
-        else:
-            opp_lines = '  - 暂无对手数据'
-
         return (
             f"当前局面：\n"
             f"- 街道: {a['street']}\n"
