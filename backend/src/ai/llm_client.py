@@ -1,6 +1,6 @@
 """
 Abstract interface for LLM provider clients.
-Both OllamaClient and QwenClient implement this interface.
+Implemented by OllamaClient (local) and OpenAICompatibleClient (cloud).
 """
 import logging
 from abc import ABC, abstractmethod

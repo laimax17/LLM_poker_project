@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useGameStore } from './store/useGameStore';
 import { useT } from './i18n/I18nContext';
 import PokerTable from './components/table/PokerTable';
@@ -6,6 +6,15 @@ import ActionBar from './components/layout/ActionBar';
 import LLMConfigBar from './components/layout/LLMConfigBar';
 import AICoachPanel from './components/ai-coach/AICoachPanel';
 import ToastNotification from './components/layout/ToastNotification';
+import LiveHintBar from './components/learning/LiveHintBar';
+import HandReviewModal from './components/learning/HandReviewModal';
+import SessionStatsPanel from './components/learning/SessionStatsPanel';
+import SetupLobby from './components/lobby/SetupLobby';
+import TournamentHUD from './components/table/TournamentHUD';
+import StandingsModal from './components/table/StandingsModal';
+import AllInEquityOverlay from './components/table/AllInEquityOverlay';
+import CareerPanel from './components/career/CareerPanel';
+import { addResult } from './utils/career';
 
 function App() {
   const { t, locale, setLocale } = useT();
@@ -29,9 +38,41 @@ function App() {
     handCount,
     actionInFlight,
     isGameOver: isPlayerEliminated,
+    learningMode,
+    setLearningMode,
+    liveHint,
+    handReview,
+    showReview,
+    closeReview,
+    sessionStats,
+    showStats,
+    toggleStats,
+    tournament,
+    standings,
+    closeStandings,
+    lastElimination,
+    levelUpFlash,
+    allinEquity,
   } = useGameStore();
 
   const [showMenu, setShowMenu] = useState(false);
+  const [showCareer, setShowCareer] = useState(false);
+  const recordedStandingsRef = useRef<unknown>(null);
+
+  // Record each finished tournament once into local career history.
+  useEffect(() => {
+    if (!standings || recordedStandingsRef.current === standings) return;
+    recordedStandingsRef.current = standings;
+    const me = standings.find((s) => s.id === 'human');
+    if (me) {
+      addResult({
+        date: Date.now(),
+        place: me.place,
+        totalPlayers: standings.length,
+        won: me.place === 1,
+      });
+    }
+  }, [standings]);
   // Delay "Next Hand" button by 2.5s after hand ends so player can see the result
   const [showNextHandBtn, setShowNextHandBtn] = useState(false);
 
@@ -222,20 +263,43 @@ function App() {
               </button>
             </div>
 
+            <SetupLobby onStart={(cfg) => startGame(cfg)} />
+
             <button
-              className="abtn abtn-raise"
-              style={{ fontSize: 13, padding: '16px 32px', marginTop: 16 }}
-              onClick={() => startGame()}
+              onClick={() => setShowCareer(true)}
+              style={{
+                background: 'transparent',
+                border: '2px solid var(--brown)',
+                color: 'var(--gold-d)',
+                fontSize: 8,
+                padding: '8px 16px',
+                cursor: 'pointer',
+                fontFamily: 'var(--font-label)',
+                letterSpacing: 1,
+                marginTop: 4,
+              }}
             >
-              {t('app.start')}
+              {t('career.button')}
             </button>
           </div>
         ) : (
           <>
+            {/* Tournament HUD */}
+            {tournament?.active && (
+              <div style={{ display: 'flex', justifyContent: 'center', padding: '4px 8px 8px' }}>
+                <TournamentHUD tournament={tournament} />
+              </div>
+            )}
+
             {/* Poker table */}
             <div style={{ flex: 1, minHeight: 0, width: '100%', display: 'flex', flexDirection: 'column' }}>
               <PokerTable gameState={gameState} handCount={handCount} />
             </div>
+
+            {/* Live GTO hint — Learning Mode only, while it's the human's turn */}
+            {learningMode && liveHint && isHumanTurn && (
+              <LiveHintBar hint={liveHint} />
+            )}
 
             {/* Action bar */}
             <ActionBar
@@ -267,10 +331,69 @@ function App() {
             <LLMConfigBar
               config={llmConfig}
               onConfigChange={setLLMConfig}
+              learningMode={learningMode}
+              onLearningModeChange={setLearningMode}
+              onToggleStats={toggleStats}
             />
           </>
         )}
       </main>
+
+      {/* ─── Learning Mode: post-hand review + session stats ─── */}
+      {showReview && handReview && (
+        <HandReviewModal review={handReview} onClose={closeReview} />
+      )}
+      {showStats && sessionStats && (
+        <SessionStatsPanel stats={sessionStats} onClose={toggleStats} />
+      )}
+
+      {/* ─── Tournament: final standings ─── */}
+      {standings && (
+        <StandingsModal
+          standings={standings}
+          onPlayAgain={() => { closeStandings(); resetGame(); }}
+        />
+      )}
+
+      {/* ─── Career panel ─── */}
+      {showCareer && <CareerPanel onClose={() => setShowCareer(false)} />}
+
+      {/* ─── All-in equity overlay ─── */}
+      {allinEquity && <AllInEquityOverlay data={allinEquity} />}
+
+      {/* ─── Tournament: blind level-up flash ─── */}
+      {levelUpFlash && (
+        <div style={{
+          position: 'fixed', top: '18%', left: '50%', transform: 'translateX(-50%)',
+          zIndex: 1700, pointerEvents: 'none', textAlign: 'center',
+          background: 'rgba(0,0,0,0.7)', border: '2px solid var(--gold)',
+          padding: '10px 22px', clipPath: 'var(--clip-sm)',
+          animation: 'fadeInSlide 0.3s ease-out',
+        }}>
+          <div style={{ fontFamily: 'var(--font-ui)', fontSize: 14, color: '#ffcc00',
+            textShadow: '0 0 10px rgba(255,204,0,0.6)', letterSpacing: 2 }}>
+            {t('tour.blindsUp')} L{levelUpFlash.level}
+          </div>
+          <div style={{ fontFamily: 'var(--font-label)', fontSize: 9, color: 'var(--gold-d)', marginTop: 4 }}>
+            {levelUpFlash.smallBlind}/{levelUpFlash.bigBlind}
+          </div>
+        </div>
+      )}
+
+      {/* ─── Tournament: elimination toast ─── */}
+      {lastElimination && (
+        <div style={{
+          position: 'fixed', bottom: '16%', left: '50%', transform: 'translateX(-50%)',
+          zIndex: 1700, pointerEvents: 'none',
+          background: 'rgba(0,0,0,0.78)', border: '2px solid #cc6666',
+          padding: '8px 18px', clipPath: 'var(--clip-sm)',
+          animation: 'fadeInSlide 0.3s ease-out',
+        }}>
+          <span style={{ fontFamily: 'var(--font-label)', fontSize: 9, color: '#ff8888', letterSpacing: 1 }}>
+            ☠ {lastElimination.id === 'human' ? t('human.you') : lastElimination.name} — #{lastElimination.place}
+          </span>
+        </div>
+      )}
 
       {/* ─── Disconnect overlay — covers table when socket lost during gameplay ─── */}
       {gameState && !isConnected && (

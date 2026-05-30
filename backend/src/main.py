@@ -23,8 +23,20 @@ from .ai.coach import AICoach
 from .ai.gto_strategy import GTOBotStrategy
 from .ai.gto_coach import GTOCoach
 from .ai.ollama import OllamaClient
-from .ai.qwen import QwenClient
+from .ai.openai_client import OpenAICompatibleClient
+from .ai.providers import (
+    PROVIDERS,
+    get_provider,
+    models_payload,
+    provider_api_key,
+    provider_available,
+)
 from .ai.strategy import BotStrategy
+from .ai.opponent_model import OpponentModel
+from .ai.banter import get_banter
+from .ai.showdown import equities_payload
+from .learning import LearningTracker
+from .tournament import TournamentManager, TournamentConfig
 
 # Seed PRNG with OS entropy for unpredictable shuffles every server restart
 random.seed(int.from_bytes(os.urandom(8), 'big'))
@@ -74,30 +86,68 @@ _bot_strategies: dict[str, BotStrategy] = {}
 _strategy: BotStrategy = RuleBasedStrategy()
 _coach: Optional[AICoach | GTOCoach] = None
 _llm_engine: str = os.environ.get('DEFAULT_AI_ENGINE', 'rule-based')
-_llm_model: str = ''
+_llm_model: str = os.environ.get('LLM_MODEL', '')
 _locale: str = 'en'  # current UI locale ('en' or 'zh'), affects bot chat language
+
+# ─── Learning Mode state ──────────────────────────────────────────────────────
+# Always-offline GTO coach used for live hints + decision grading, independent
+# of the user-selected bot/coach engine (so hints work even on LLM engines).
+_learning_mode: bool = False
+_live_coach = GTOCoach()
+_live_coach.N_SIM = 250  # fewer sims → snappier live hints; grading reuses the cache
+_pending_hint: Optional[dict[str, Any]] = None  # GTO hint for the human's current turn
+_tracker = LearningTracker()
+
+# ─── Opponent modeling (agent memory) ─────────────────────────────────────────
+# Tracks every player's tendencies across the session; fed to LLM bots so they
+# can exploit reads. Always on (independent of learning mode).
+_opponents = OpponentModel()
+_hand_open: bool = False  # True between begin_hand and hand-end commit
+
+# ─── Tournament ───────────────────────────────────────────────────────────────
+_tournament = TournamentManager()
+_pending_level_up: bool = False  # set when a hand starts at a new blind level
+
+# ─── Living opponents (banter + tilt) ─────────────────────────────────────────
+_BOT_PERSONALITY: dict[str, str] = {p['id']: p['personality'] for p in BOT_PROFILES}
+_chips_at_hand_start: dict[str, int] = {}
 
 
 # ─── Strategy factory ─────────────────────────────────────────────────────────
 def _build_strategy(
     engine_name: str, model: str
 ) -> tuple[BotStrategy, AICoach | GTOCoach | None]:
-    """Return (fallback_strategy, coach) pair for the given engine name.
+    """Return (fallback_strategy, coach) pair for the given engine.
+
+    `engine_name` is one of:
+      - 'rule-based' / 'gto'  → offline bots + GTOCoach (no LLM)
+      - 'ollama'              → local LLM via OllamaClient
+      - any provider id in PROVIDERS (e.g. 'openrouter', 'deepseek')
+                              → cloud LLM via the unified OpenAICompatibleClient
 
     LLM engines: bots use LLMBotStrategy, coach uses AICoach (LLM-powered).
-    GTO engine:  bots use GTOBotStrategy, coach uses GTOCoach (no LLM needed).
-    Rule-based:  bots use RuleBasedStrategy, coach uses GTOCoach so the human
-                 always has access to GTO hints even without an LLM.
+    Offline engines: bots use GTOBotStrategy, coach uses GTOCoach so the human
+    always has GTO hints even without an LLM.
     """
-    if engine_name == 'ollama':
-        client = OllamaClient(model=model or None)
-        return LLMBotStrategy(client), AICoach(client)
-    if engine_name in ('qwen-plus', 'qwen-max'):
-        client = QwenClient(model=model or engine_name)
-        return LLMBotStrategy(client), AICoach(client)
-    if engine_name == 'gto':
+    if engine_name in ('gto', 'rule-based'):
         return GTOBotStrategy(), GTOCoach()
-    # 'rule-based' (default): bots use GTO+personality strategy, human gets GTO coach hints
+
+    if engine_name == 'ollama':
+        spec = PROVIDERS['ollama']
+        client = OllamaClient(model=model or spec.default_model)
+        return LLMBotStrategy(client), AICoach(client)
+
+    spec = get_provider(engine_name)
+    if spec is not None:
+        client = OpenAICompatibleClient(
+            model=model or spec.default_model,
+            base_url=spec.base_url,
+            api_key=provider_api_key(engine_name),
+        )
+        return LLMBotStrategy(client), AICoach(client)
+
+    # Unknown engine → safe offline default.
+    logger.warning('Unknown engine %r, falling back to GTO', engine_name)
     return GTOBotStrategy(), GTOCoach()
 
 
@@ -129,6 +179,171 @@ def _get_strategy(bot_id: str) -> BotStrategy:
 
 
 # ─── Helpers ──────────────────────────────────────────────────────────────────
+def _is_human_turn() -> bool:
+    """True if it is the human's turn and the hand is still in progress."""
+    if engine.state.value in ('SHOWDOWN', 'FINISHED'):
+        return False
+    try:
+        return engine.players[engine.current_player_idx].id == 'human'
+    except IndexError:
+        return False
+
+
+def _human_chips() -> int:
+    human = next((p for p in engine.players if p.id == 'human'), None)
+    return human.chips if human else 0
+
+
+def _prepare_hand() -> None:
+    """Advance the tournament and set the engine blinds BEFORE start_hand().
+
+    The engine reads small_blind/big_blind inside start_hand(), so escalation
+    happens here. Stores a pending level-up flag for broadcast_state to emit.
+    """
+    global _pending_level_up
+    if _tournament.active:
+        _pending_level_up = _tournament.on_hand_start()
+        sb, bb = _tournament.current_blinds()
+        engine.small_blind = sb
+        engine.big_blind = bb
+        engine.ante = _tournament.current_ante()
+
+
+def _begin_hand() -> None:
+    """Common per-hand setup for the learning tracker and opponent model."""
+    global _hand_open, _chips_at_hand_start
+    _tracker.begin_hand(_human_chips())
+    _opponents.begin_hand()
+    _chips_at_hand_start = {p.id: p.chips for p in engine.players}
+    # Tilt cools off each hand.
+    for strat in _bot_strategies.values():
+        tilt = getattr(strat, 'tilt', 0.0)
+        if tilt > 0:
+            strat.tilt = tilt * 0.5 if tilt * 0.5 >= 0.1 else 0.0
+    _hand_open = True
+
+
+async def _settle_living_opponents() -> None:
+    """At hand end: set tilt on big losers and emit reactive bot banter."""
+    if not _chips_at_hand_start:
+        return
+    bb = max(1, engine.big_blind)
+    events: list[tuple[int, str, str]] = []  # (priority, bot_id, event)
+    for p in engine.players:
+        if p.id == 'human':
+            continue
+        start = _chips_at_hand_start.get(p.id)
+        if start is None:
+            continue
+        delta = p.chips - start
+        if p.chips <= 0 and start > 0:
+            events.append((3, p.id, 'eliminated'))
+        elif delta >= max(start * 0.5, bb * 8):
+            event = 'doubled_up' if p.chips >= start * 2 else 'won_big'
+            events.append((2, p.id, event))
+        elif delta <= -max(start * 0.4, bb * 6):
+            events.append((1, p.id, 'lost_big'))
+            strat = _bot_strategies.get(p.id)
+            if strat is not None and hasattr(strat, 'tilt'):
+                strat.tilt = min(1.0, strat.tilt + 0.8)
+    # Emit at most two reactions, highest priority first, to avoid chat spam.
+    events.sort(key=lambda e: e[0], reverse=True)
+    for _prio, bot_id, event in events[:2]:
+        line = get_banter(event, _BOT_PERSONALITY.get(bot_id, 'shark'), _locale)
+        if line:
+            await sio.emit('ai_thought', {'player_id': bot_id, 'thought': event, 'chat': line})
+
+
+def _post_antes() -> None:
+    """Post antes for the current blind level (tournament layer, no engine change).
+
+    Antes are dead money: they go into the pot and each player's total_bet (so
+    side pots stay correct) but are NOT a bet to call, so current_bet is left
+    untouched and the normal betting round proceeds against the big blind.
+    """
+    ante = _tournament.current_ante() if _tournament.active else 0
+    if ante <= 0:
+        return
+    for p in engine.players:
+        if not p.is_active or p.chips <= 0:
+            continue
+        amt = min(p.chips, ante)
+        p.chips -= amt
+        p.total_bet += amt
+        engine.pot += amt
+        if p.chips == 0:
+            p.is_all_in = True
+    # If antes put the to-act player all-in, advance to the next able player.
+    n = len(engine.players)
+    guard = 0
+    while n and engine.players[engine.current_player_idx].is_all_in and guard < n:
+        engine.current_player_idx = (engine.current_player_idx + 1) % n
+        guard += 1
+
+
+def _players_summary() -> list[dict[str, Any]]:
+    return [{'id': p.id, 'name': p.name, 'chips': p.chips} for p in engine.players]
+
+
+async def _maybe_emit_allin_equity(board_before: list, street_before: str) -> None:
+    """If the last action triggered an all-in run-out, emit each contestant's
+    win% computed on the board *before* the run-out (broadcast-style drama)."""
+    if engine.state.value not in ('SHOWDOWN', 'FINISHED'):
+        return
+    if len(engine.community_cards) <= len(board_before):
+        return  # no cards were dealt by that action → not a run-out
+    contestants = [
+        (p.id, p.name, list(p.hand))
+        for p in engine.players if p.is_active and len(p.hand) == 2
+    ]
+    if len(contestants) < 2:
+        return
+    try:
+        payload = equities_payload(contestants, list(board_before))
+        payload['street'] = street_before
+        await sio.emit('allin_equity', payload)
+    except Exception as exc:  # pragma: no cover - defensive
+        logger.warning('all-in equity computation failed: %s', exc)
+
+
+def _observe(player_id: str, street: str, action: str) -> None:
+    """Feed one observed action into the opponent model (always on)."""
+    _opponents.observe(player_id, street, action)
+
+
+async def _maybe_emit_live_hint(state: dict[str, Any]) -> None:
+    """When learning mode is on and it's the human's turn, compute and emit a
+    compact GTO hint (and cache it for grading the human's upcoming action)."""
+    global _pending_hint
+    if not _learning_mode or not _is_human_turn():
+        return
+    try:
+        hint = await _live_coach.analyze(state, 'human')
+    except Exception as exc:  # pragma: no cover - defensive
+        logger.warning('live hint analyze failed: %s', exc)
+        return
+    _pending_hint = hint
+    await sio.emit('live_hint', {
+        'recommendation': hint.get('recommendation'),
+        'recommendedAmount': hint.get('recommendedAmount'),
+        'stats': hint.get('stats', []),
+        'isPreflop': state.get('state') == 'PREFLOP',
+    })
+
+
+async def _maybe_finalize_hand() -> None:
+    """When learning mode is on and a hand has ended, emit the hand review and
+    refreshed session stats."""
+    if not _learning_mode:
+        return
+    if engine.state.value not in ('SHOWDOWN', 'FINISHED'):
+        return
+    review = _tracker.finalize_hand(_human_chips())
+    if review is not None:
+        await sio.emit('hand_review', review)
+        await sio.emit('session_stats', _tracker.session_stats())
+
+
 async def broadcast_state() -> None:
     """Emit game state (human POV + is_dealer augmentation) to all clients."""
     state = engine.get_public_game_state('human')
@@ -143,6 +358,40 @@ async def broadcast_state() -> None:
         human = next((p for p in engine.players if p.id == 'human'), None)
         if human and human.chips <= 0:
             await sio.emit('game_over', {'reason': 'eliminated', 'final_chips': 0})
+
+    # ── Tournament: live HUD state + level-up notice ──
+    global _hand_open, _pending_level_up
+    if _tournament.active:
+        await sio.emit('tournament_state', _tournament.state_payload(_players_summary(), 'human'))
+        if _pending_level_up:
+            _pending_level_up = False
+            sb, bb = _tournament.current_blinds()
+            await sio.emit('level_up', {'level': _tournament.level + 1, 'smallBlind': sb, 'bigBlind': bb})
+
+    # ── Commit opponent reads once per hand (always on) ──
+    if _hand_open and engine.state.value in ('SHOWDOWN', 'FINISHED'):
+        _opponents.commit_hand()
+        _hand_open = False
+        await _settle_living_opponents()
+        await _settle_tournament_hand()
+
+    # ── Learning Mode hooks ──
+    await _maybe_finalize_hand()
+    await _maybe_emit_live_hint(state)
+
+
+async def _settle_tournament_hand() -> None:
+    """At hand end: announce eliminations and detect tournament completion."""
+    if not _tournament.active:
+        return
+    summary = _players_summary()
+    for elim in _tournament.record_eliminations(summary):
+        await sio.emit('player_eliminated', elim)
+    if _tournament.is_over(summary):
+        _tournament.active = False
+        await sio.emit('tournament_over', {
+            'standings': _tournament.final_standings(summary),
+        })
 
 
 async def check_ai_turn() -> None:
@@ -166,12 +415,17 @@ async def check_ai_turn() -> None:
             state_for_bot = engine.get_public_game_state(current_p.id)
 
             strategy = _get_strategy(current_p.id)
-            is_llm_call = isinstance(strategy, LLMBotStrategy) and state_for_bot.get('state') != 'PREFLOP'
+            is_llm_call = isinstance(strategy, LLMBotStrategy)
             if is_llm_call:
                 await sio.emit('ai_thinking', {'player_id': current_p.id})
+            bot_street = state_for_bot.get('state', 'PREFLOP')
             try:
                 if isinstance(strategy, LLMBotStrategy):
-                    decision = await strategy.decide_async(state_for_bot, current_p.id)
+                    active_ids = [p.id for p in engine.players if p.is_active]
+                    profiles = _opponents.profiles_except(current_p.id, only_active=active_ids)
+                    decision = await strategy.decide_async(
+                        state_for_bot, current_p.id, opponents=profiles
+                    )
                 elif isinstance(strategy, (RuleBasedStrategy, GTOBotStrategy)):
                     decision = strategy.decide(state_for_bot, current_p.id, locale=_locale)
                 else:
@@ -192,6 +446,8 @@ async def check_ai_turn() -> None:
 
             actual_action = decision.action
             actual_amount = decision.amount
+            board_before = list(engine.community_cards)
+            street_before = engine.state.value
             try:
                 engine.player_action(current_p.id, decision.action, decision.amount)
             except Exception as exc:
@@ -202,6 +458,9 @@ async def check_ai_turn() -> None:
                     engine.player_action(current_p.id, 'fold', 0)
                 except Exception:
                     pass
+
+            _observe(current_p.id, bot_street, actual_action)
+            await _maybe_emit_allin_equity(board_before, street_before)
 
             await sio.emit('player_acted', {
                 'player_id': current_p.id,
@@ -231,13 +490,47 @@ async def health() -> dict[str, Any]:
     }
 
 
-@app.post('/start-game')
-async def start_game() -> dict[str, str]:
+class StartGameRequest(BaseModel):
+    num_opponents: int = 5
+    starting_stack: int = 5000
+    blind_speed: str = 'normal'
+    difficulty: str = 'normal'
+
+
+def _setup_new_tournament(req: StartGameRequest) -> None:
+    """Build the table + (re)start the tournament from a setup request."""
+    global _llm_engine, _strategy, _coach
+    cfg = TournamentConfig(
+        num_opponents=req.num_opponents,
+        starting_stack=req.starting_stack,
+        blind_speed=req.blind_speed,
+        difficulty=req.difficulty,
+    )
+    _tournament.configure(cfg)
+    cfg = _tournament.config  # sanitized
+
+    # Difficulty selects the bot engine (LLMConfigBar can still override later).
+    _llm_engine = _tournament.engine_for_difficulty()
+    _strategy, _coach = _build_strategy(_llm_engine, _llm_model)
+    _rebuild_bot_strategies(_llm_engine, _llm_model)
+
     engine.players = []
-    engine.add_player('human', 'PLAYER', 5000)
-    for prof in BOT_PROFILES:
-        engine.add_player(prof['id'], prof['name'], 5000)
+    engine.add_player('human', 'PLAYER', cfg.starting_stack)
+    for prof in BOT_PROFILES[:cfg.num_opponents]:
+        engine.add_player(prof['id'], prof['name'], cfg.starting_stack)
+
+    _tracker.reset()
+    _opponents.reset()
+    _tournament.start(total_players=len(engine.players))
+
+
+@app.post('/start-game')
+async def start_game(config: StartGameRequest | None = None) -> dict[str, str]:
+    _setup_new_tournament(config or StartGameRequest())
+    _prepare_hand()
     engine.start_hand()
+    _begin_hand()
+    _post_antes()
     await broadcast_state()
     await check_ai_turn()
     return {'status': 'started'}
@@ -251,6 +544,12 @@ class AIConfigRequest(BaseModel):
 @app.get('/ai/config')
 def get_ai_config() -> dict[str, str]:
     return {'engine': _llm_engine, 'model': _llm_model}
+
+
+@app.get('/ai/models')
+def get_ai_models() -> dict[str, Any]:
+    """Return the provider + model registry for the LLMConfigBar dropdown."""
+    return models_payload()
 
 
 @app.post('/ai/config')
@@ -275,7 +574,20 @@ async def player_action(sid: str, data: dict[str, Any]) -> None:
         if current_player.id != 'human':
             await sio.emit('error', {'message': 'Not your turn!'}, to=sid)
             return
+
+        # ── Learning Mode: grade this decision against the GTO baseline ──
+        global _pending_hint
+        if _learning_mode:
+            pre_state = engine.get_public_game_state('human')
+            hint = _pending_hint or await _live_coach.analyze(pre_state, 'human')
+            _tracker.record_decision(hint, pre_state, action, amount)
+            _pending_hint = None
+
+        human_street = engine.state.value
+        board_before = list(engine.community_cards)
         engine.player_action('human', action, amount)
+        _observe('human', human_street, action)
+        await _maybe_emit_allin_equity(board_before, human_street)
         await sio.emit('player_acted', {
             'player_id': 'human',
             'player_name': 'PLAYER',
@@ -293,7 +605,10 @@ async def player_action(sid: str, data: dict[str, Any]) -> None:
 async def start_next_hand(sid: str, data: dict[str, Any]) -> None:
     logger.info('start_next_hand from %s', sid)
     try:
+        _prepare_hand()
         engine.start_hand()
+        _begin_hand()
+        _post_antes()
         await broadcast_state()
         await check_ai_turn()
     except ValueError as exc:
@@ -376,15 +691,33 @@ async def connect(sid: str, environ: dict[str, Any]) -> None:
 
 @sio.event
 async def reset_game(sid: str, data: dict[str, Any]) -> None:
-    """Full game reset — restart with fresh chips for all players."""
+    """Full game reset — restart the tournament with the same (or new) config."""
     logger.info('reset_game from %s', sid)
-    engine.players = []
-    engine.add_player('human', 'PLAYER', 5000)
-    for prof in BOT_PROFILES:
-        engine.add_player(prof['id'], prof['name'], 5000)
+    req = StartGameRequest(
+        num_opponents=data.get('num_opponents', _tournament.config.num_opponents),
+        starting_stack=data.get('starting_stack', _tournament.config.starting_stack),
+        blind_speed=data.get('blind_speed', _tournament.config.blind_speed),
+        difficulty=data.get('difficulty', _tournament.config.difficulty),
+    )
+    _setup_new_tournament(req)
+    _prepare_hand()
     engine.start_hand()
+    _begin_hand()
+    _post_antes()
     await broadcast_state()
     await check_ai_turn()
+
+
+@sio.event
+async def set_learning_mode(sid: str, data: dict[str, Any]) -> None:
+    """Enable/disable Learning Mode (live hints + post-hand review + stats)."""
+    global _learning_mode
+    _learning_mode = bool(data.get('enabled', False))
+    logger.info('Learning mode set to %s by %s', _learning_mode, sid)
+    if _learning_mode:
+        # Emit a hint immediately if it's already the human's turn.
+        await _maybe_emit_live_hint(engine.get_public_game_state('human'))
+        await sio.emit('session_stats', _tracker.session_stats(), to=sid)
 
 
 @sio.event

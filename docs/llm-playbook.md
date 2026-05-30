@@ -12,26 +12,31 @@
   └─ Socket.IO / HTTP
         └─ FastAPI backend (main.py)
               └─ _build_strategy(engine, model)
-                    ├─ "rule-based" → RuleBasedStrategy     # 无需 LLM
-                    ├─ "gto"        → GTOBotStrategy         # 无需 LLM
-                    ├─ "ollama"     → OllamaClient           # 本地推理
-                    ├─ "qwen-plus"  → QwenClient (DashScope) # 云端 API
-                    └─ "qwen-max"   → QwenClient (DashScope) # 云端 API（更强）
+                    ├─ "rule-based" → GTOBotStrategy              # 无需 LLM
+                    ├─ "gto"        → GTOBotStrategy              # 无需 LLM
+                    ├─ "ollama"     → OllamaClient                # 本地推理
+                    └─ <provider>   → OpenAICompatibleClient      # 云端，统一客户端
+                          （provider/模型清单见 ai/providers.py）
 ```
 
-**关键机制**：LLM 引擎仅在 **Flop / Turn / River** 调用模型决策；Pre-flop 始终由 RuleBasedStrategy 处理以保证速度。
+**统一客户端**：所有云端 provider（OpenRouter、DeepSeek、…）都走同一个
+`OpenAICompatibleClient`，由 `base_url + api_key` 决定 provider、`model` 字符串决定模型。
+新增 provider = 在 `ai/providers.py` 加一个 `ProviderSpec`；新增模型 = 加一行 `ModelSpec`。
+
+**关键机制**：LLM 引擎仅在 **Flop / Turn / River** 调用模型决策；Pre-flop 始终由规则引擎处理以保证速度。
+翻后会把预算好的胜率/底池赔率/位置/牌面质地 + 对手画像一起喂给模型（增强提示 + 对手记忆）。
 
 ---
 
 ## 引擎能力对比
 
-| 引擎 | Bot 决策 | AI Coach | 需要网络 | 推荐场景 |
-|------|----------|----------|----------|----------|
-| `rule-based` | 5 种人格规则 | GTO 计算型 | 否 | 本地调试 / 演示 |
-| `gto` | 位置 + 蒙特卡洛 | GTO 计算型 | 否 | 无网络环境 |
-| `ollama` | LLM（后街）| LLM 分析 | 否（本机推理）| 本地 + 数据隐私 |
-| `qwen-plus` | LLM（后街）| LLM 分析 | 是 | 生产推荐（速度/质量平衡）|
-| `qwen-max` | LLM（后街）| LLM 分析 | 是 | 最强分析质量 |
+| 引擎 | Bot 决策 | AI Coach | Key | 推荐场景 |
+|------|----------|----------|-----|----------|
+| `rule-based` | GTO + 人格 | GTO 计算型 | 无 | 本地调试 / 演示 |
+| `gto` | 位置 + 蒙特卡洛 | GTO 计算型 | 无 | 无网络环境 |
+| `ollama` | LLM agent（后街）| LLM 分析 | 无（本机推理）| 本地 + 数据隐私 |
+| `openrouter` | LLM agent（后街）| LLM 分析 | `OPENROUTER_API_KEY` | 一个 key 用全部主流模型 |
+| `deepseek` | LLM agent（后街）| LLM 分析 | `DEEPSEEK_API_KEY` | 成本最低、中文好 |
 
 ---
 
@@ -133,59 +138,74 @@ curl http://localhost:8000/health
 
 ---
 
-## 方式 B：阿里云 DashScope（Qwen 云端）
+## 方式 B：云端 provider（OpenRouter / DeepSeek，统一客户端）
 
-### 前置要求
+所有云端 provider 共用同一个 OpenAI 兼容客户端。**每个 provider 只需一个 key**，
+填在 `backend/.env` 里即可——未配置 key 的 provider 在 UI 中显示为 `NO KEY`。
 
-- 阿里云账号，开通 [DashScope](https://dashscope.console.aliyun.com) 服务
-- 获取 API Key：控制台 → API-KEY 管理 → 创建
+### Step 1 — 申请 key
 
-### Step 1 — 配置 API Key
+| Provider | 申请地址 | 特点 |
+|----------|----------|------|
+| OpenRouter | https://openrouter.ai/keys | 一个 key 直达 GPT / Claude / Gemini / DeepSeek / Qwen / Llama |
+| DeepSeek | https://platform.deepseek.com | 直连，成本最低，中文强 |
+
+### Step 2 — 配置 .env
 
 ```bash
 cp backend/.env.example backend/.env
 ```
 
 ```ini
-# backend/.env
-DASHSCOPE_API_KEY=sk-xxxxxxxxxxxxxxxxxxxxxxxx
-QWEN_MODEL=qwen-plus
-DEFAULT_AI_ENGINE=qwen-plus
+# backend/.env —— 填你拥有的 key（都可选填）
+OPENROUTER_API_KEY=sk-or-xxxxxxxx
+DEEPSEEK_API_KEY=sk-xxxxxxxx
+
+# 启动默认引擎与模型（可选）
+DEFAULT_AI_ENGINE=openrouter
+LLM_MODEL=openai/gpt-4o-mini
 ```
 
 > **安全**：`.env` 已在 `.gitignore`，严禁提交到 Git 仓库。
 
-### Step 2 — 模型选型
+### Step 3 — 模型清单
 
-| 模型 ID | 引擎名 | 响应延迟 | 推理质量 | 参考费用 |
-|---------|--------|----------|----------|----------|
-| `qwen-turbo` | 自定义填写 | ~1s | 基础 | 最低 |
-| `qwen-plus` | `qwen-plus` | ~2s | 中等 | 低 |
-| `qwen-max` | `qwen-max` | ~4s | 最强 | 中 |
+模型清单维护在 `backend/src/ai/providers.py` 的 `MODELS`，前端通过
+`GET /ai/models` 自动拉取并按 provider 分组。当前内置（节选）：
 
-推荐生产环境使用 **`qwen-plus`**，在速度和质量之间取得最佳平衡。
+| Provider | 模型 ID | 说明 |
+|----------|---------|------|
+| openrouter | `openai/gpt-4o-mini` | 便宜快，默认 |
+| openrouter | `anthropic/claude-3.5-sonnet` | 推理强 |
+| openrouter | `deepseek/deepseek-chat` | 性价比高 |
+| deepseek | `deepseek-chat` | 直连，最便宜 |
+| deepseek | `deepseek-reasoner` | 带推理 |
 
-### Step 3 — 启动并验证
+新增模型只需在 `MODELS` 加一行 `ModelSpec(id, label, provider)`。
+
+### Step 4 — 启动并验证
 
 ```bash
 docker compose up -d
 
 curl http://localhost:8000/health
-# 期望：{"status":"ok","engine":"qwen-plus","llm_connected":true}
+# 期望：{"status":"ok","engine":"openrouter","llm_connected":true}
+
+curl http://localhost:8000/ai/models   # 查看 provider 可用性 + 模型清单
 ```
 
-### Step 4 — 游戏内切换
+### Step 5 — 游戏内切换
 
-LLMConfigBar → Engine 选 `Qwen Plus` 或 `Qwen Max` → 点击 `Connect`
+LLMConfigBar → Engine 选 `OPENROUTER` / `DEEPSEEK` → Model 选具体模型。
 
 ### 故障排查
 
 | 现象 | 原因 | 解决方案 |
 |------|------|----------|
-| `401 Unauthorized` | API Key 无效或含空格 | 检查 `.env` 文件，重新复制 Key |
-| `llm_connected: false` | 网络/防火墙拦截 | `curl https://dashscope.aliyuncs.com` 测试连通性 |
-| Bot 频繁 fold | JSON 解析失败 | 查日志确认 LLM 响应格式；尝试换 `qwen-max` |
-| 费用异常 | health_check 调用次数多 | 游戏结束后关闭浏览器 Tab 停止轮询 |
+| 引擎显示 `NO KEY` | 对应 `*_API_KEY` 未设置 | 在 `backend/.env` 填入 key 后重启 |
+| `401 Unauthorized` | key 无效或含空格 | 重新复制 key |
+| `llm_connected: false` | 网络/防火墙拦截 | 测试 `curl https://openrouter.ai` 连通性 |
+| Bot 频繁 fold | JSON 解析失败 | 查日志确认 LLM 响应格式；换更强的模型 |
 
 ---
 
@@ -194,19 +214,19 @@ LLMConfigBar → Engine 选 `Qwen Plus` 或 `Qwen Max` → 点击 `Connect`
 无需重启服务，随时热切换：
 
 ```bash
-# 切到 Qwen Max
+# 切到 OpenRouter + Claude
 curl -X POST http://localhost:8000/ai/config \
-  -d '{"engine":"qwen-max","model":"qwen-max"}' \
+  -d '{"engine":"openrouter","model":"anthropic/claude-3.5-sonnet"}' \
+  -H 'Content-Type: application/json'
+
+# 切到 DeepSeek 直连
+curl -X POST http://localhost:8000/ai/config \
+  -d '{"engine":"deepseek","model":"deepseek-chat"}' \
   -H 'Content-Type: application/json'
 
 # 切回纯规则（最快，无 API 消耗）
 curl -X POST http://localhost:8000/ai/config \
   -d '{"engine":"rule-based","model":""}' \
-  -H 'Content-Type: application/json'
-
-# 切到 GTO 模式
-curl -X POST http://localhost:8000/ai/config \
-  -d '{"engine":"gto","model":""}' \
   -H 'Content-Type: application/json'
 
 # 切到本地 Ollama 并指定模型
@@ -225,12 +245,12 @@ docker compose logs -f backend
 
 # 正常启动标志
 #   OllamaClient initialised: url=http://... model=qwen2.5:7b
-#   QwenClient initialised: model=qwen-plus
+#   OpenAICompatibleClient initialised: model=... base_url=https://openrouter.ai/api/v1
 #   LLMBotStrategy decision for bot_3: raise
 
 # 异常信号
 #   LLMBotStrategy LLM call failed for bot_2 (falling back to rule-based): ...
-#   QwenClient API error: 401 ...
+#   LLM API error (...): 401 ...
 #   OllamaClient HTTP error: Connection refused
 ```
 
@@ -242,6 +262,7 @@ docker compose logs -f backend
 |------|--------|------|
 | `OLLAMA_HOST` | `http://localhost:11434` | Ollama 服务地址 |
 | `OLLAMA_MODEL` | `qwen2.5:7b` | Ollama 默认模型 |
-| `DASHSCOPE_API_KEY` | _(必填)_ | 阿里云 DashScope API Key |
-| `QWEN_MODEL` | `qwen-plus` | Qwen 云端默认模型 |
+| `OPENROUTER_API_KEY` | _(可选)_ | OpenRouter API Key（一个 key 多模型）|
+| `DEEPSEEK_API_KEY` | _(可选)_ | DeepSeek API Key |
 | `DEFAULT_AI_ENGINE` | `rule-based` | 服务启动时的默认引擎 |
+| `LLM_MODEL` | _(空)_ | 启动默认云端模型（如 `openai/gpt-4o-mini`）|

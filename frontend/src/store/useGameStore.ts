@@ -6,6 +6,14 @@ import type {
   BotThought,
   LLMConfig,
   PlayerAction,
+  LiveHint,
+  HandReview,
+  SessionStats,
+  TournamentState,
+  StandingEntry,
+  EliminationEvent,
+  GameSetupConfig,
+  AllInEquity,
 } from '../types';
 import {
   playCardDeal,
@@ -62,16 +70,35 @@ interface GameStore {
   // LLM Config
   llmConfig: LLMConfig;
 
+  // Learning Mode
+  learningMode: boolean;
+  liveHint: LiveHint | null;
+  handReview: HandReview | null;
+  sessionStats: SessionStats | null;
+  showReview: boolean;
+  showStats: boolean;
+
+  // Tournament
+  tournament: TournamentState | null;
+  standings: StandingEntry[] | null;
+  lastElimination: EliminationEvent | null;
+  levelUpFlash: { level: number; smallBlind: number; bigBlind: number } | null;
+  allinEquity: AllInEquity | null;
+
   // Actions
   connect: () => void;
-  startGame: () => Promise<void>;
+  startGame: (config?: GameSetupConfig) => Promise<void>;
   sendAction: (action: string, amount?: number) => void;
   startNextHand: () => void;
-  resetGame: () => void;
+  resetGame: (config?: GameSetupConfig) => void;
+  closeStandings: () => void;
   requestAdvice: () => void;
   closeCoach: () => void;
   setLLMConfig: (config: Partial<LLMConfig>) => void;
   setLocale: (locale: string) => void;
+  setLearningMode: (enabled: boolean) => void;
+  closeReview: () => void;
+  toggleStats: () => void;
 }
 
 export const useGameStore = create<GameStore>((set, get) => ({
@@ -94,6 +121,17 @@ export const useGameStore = create<GameStore>((set, get) => ({
     model: '',
     status: 'online',
   },
+  learningMode: false,
+  liveHint: null,
+  handReview: null,
+  sessionStats: null,
+  showReview: false,
+  showStats: false,
+  tournament: null,
+  standings: null,
+  lastElimination: null,
+  levelUpFlash: null,
+  allinEquity: null,
 
   connect: () => {
     const socket = io(BACKEND_URL, {
@@ -151,6 +189,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
         gameState: data,
         handCount: isNewHand ? state.handCount + 1 : state.handCount,
         actionInFlight: false,  // server responded → clear in-flight lock
+        allinEquity: isNewHand ? null : state.allinEquity,
       }));
     });
 
@@ -223,6 +262,53 @@ export const useGameStore = create<GameStore>((set, get) => ({
       });
     });
 
+    // ── Learning Mode events ──
+    socket.on('live_hint', (data: LiveHint) => {
+      set({ liveHint: data });
+    });
+
+    socket.on('hand_review', (data: HandReview) => {
+      // Only auto-open the review modal when there is something to learn from.
+      set(state => ({
+        handReview: data,
+        showReview: state.learningMode && data.decisions.length > 0,
+      }));
+    });
+
+    socket.on('session_stats', (data: SessionStats) => {
+      set({ sessionStats: data });
+    });
+
+    // ── Tournament events ──
+    socket.on('tournament_state', (data: TournamentState) => {
+      set({ tournament: data });
+    });
+
+    socket.on('level_up', (data: { level: number; smallBlind: number; bigBlind: number }) => {
+      set({ levelUpFlash: data });
+      setTimeout(() => {
+        set(state => (state.levelUpFlash === data ? { levelUpFlash: null } : state));
+      }, 3500);
+    });
+
+    socket.on('player_eliminated', (data: EliminationEvent) => {
+      set({ lastElimination: data });
+      setTimeout(() => {
+        set(state => (state.lastElimination === data ? { lastElimination: null } : state));
+      }, 4000);
+    });
+
+    socket.on('tournament_over', (data: { standings: StandingEntry[] }) => {
+      set({ standings: data.standings });
+    });
+
+    socket.on('allin_equity', (data: AllInEquity) => {
+      set({ allinEquity: data });
+      setTimeout(() => {
+        set(state => (state.allinEquity === data ? { allinEquity: null } : state));
+      }, 7000);
+    });
+
     socket.on('llm_status', (data: { status: 'online' | 'offline' }) => {
       set(state => ({
         llmConfig: { ...state.llmConfig, status: data.status },
@@ -238,11 +324,15 @@ export const useGameStore = create<GameStore>((set, get) => ({
     set({ socket });
   },
 
-  startGame: async () => {
+  startGame: async (config?: GameSetupConfig) => {
     prewarmAudio(); // initialize AudioContext during user gesture
-    set({ isGameOver: false, gameOverReason: null });
+    set({ isGameOver: false, gameOverReason: null, standings: null });
     try {
-      const res = await fetch(`${BACKEND_URL}/start-game`, { method: 'POST' });
+      const res = await fetch(`${BACKEND_URL}/start-game`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: config ? JSON.stringify(config) : undefined,
+      });
       if (!res.ok) throw new Error('Failed to start game');
     } catch (e) {
       console.error(e);
@@ -265,7 +355,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
         action: action as PlayerAction['action'],
         amount,
       };
-      set({ currentAction: humanAction, actionInFlight: true });
+      // Clear the live hint immediately — it described the pre-action spot.
+      set({ currentAction: humanAction, actionInFlight: true, liveHint: null });
       setTimeout(() => {
         set(state => {
           if (state.currentAction === humanAction) return { currentAction: null };
@@ -284,11 +375,16 @@ export const useGameStore = create<GameStore>((set, get) => ({
     }
   },
 
-  resetGame: () => {
+  resetGame: (config?: GameSetupConfig) => {
     const { socket } = get();
-    if (socket) socket.emit('reset_game', {});
-    set({ isGameOver: false, gameOverReason: null, gameState: null, handCount: 0, botThoughts: {} });
+    if (socket) socket.emit('reset_game', config ?? {});
+    set({
+      isGameOver: false, gameOverReason: null, gameState: null, handCount: 0,
+      botThoughts: {}, standings: null, tournament: null,
+    });
   },
+
+  closeStandings: () => set({ standings: null }),
 
   setLocale: (locale: string) => {
     const { socket } = get();
@@ -314,4 +410,15 @@ export const useGameStore = create<GameStore>((set, get) => ({
       socket.emit('set_llm_config', { engine: newConfig.engine, model: newConfig.model });
     }
   },
+
+  setLearningMode: (enabled: boolean) => {
+    const { socket } = get();
+    set({ learningMode: enabled });
+    if (!enabled) set({ liveHint: null, showReview: false });
+    if (socket) socket.emit('set_learning_mode', { enabled });
+  },
+
+  closeReview: () => set({ showReview: false }),
+
+  toggleStats: () => set(state => ({ showStats: !state.showStats })),
 }));

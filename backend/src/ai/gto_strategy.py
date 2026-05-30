@@ -133,8 +133,24 @@ class GTOBotStrategy(BotStrategy):
 
     def __init__(self, personality: str = 'shark') -> None:
         self._personality_name: str = personality
-        self._mods: _PersonalityMod = _PERSONALITY_MODS.get(personality, _DEFAULT_MOD)
+        self._base_mods: _PersonalityMod = _PERSONALITY_MODS.get(personality, _DEFAULT_MOD)
         self._p: Personality = PERSONALITIES.get(personality, PERSONALITIES['shark'])
+        # Tilt (0.0 = composed). Raised after losing a big pot; loosens & over-bluffs.
+        self.tilt: float = 0.0
+
+    @property
+    def _mods(self) -> _PersonalityMod:
+        """Effective personality modifiers, widened when the bot is on tilt."""
+        if self.tilt <= 0:
+            return self._base_mods
+        t = min(1.0, self.tilt)
+        b = self._base_mods
+        return _PersonalityMod(
+            open_freq_mult=b.open_freq_mult * (1 + 0.5 * t),      # plays more hands
+            value_thresh_offset=b.value_thresh_offset - 0.06 * t,  # value-bets lighter
+            call_margin_offset=b.call_margin_offset - 0.10 * t,    # calls down lighter
+            bluff_freq_mult=b.bluff_freq_mult * (1 + 1.5 * t),     # bluffs much more
+        )
 
     def decide(self, game_state: dict[str, Any], player_id: str, locale: str = 'en') -> AIThought:
         """Main entry: dispatch to pre- or post-flop logic."""

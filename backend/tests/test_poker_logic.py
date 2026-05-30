@@ -505,18 +505,99 @@ def test_split_pot():
     # Total chips must be conserved (pot split between both winners)
     total = sum(p.chips for p in engine.players)
     assert total == 2000
-    # Each winner received exactly half the pot (30 // 2 = 15)
-    half_pot = engine.pot // 2  # pot is 0 after distribution, check via chip totals
     p1 = next(p for p in engine.players if p.id == "p1")
     p2 = next(p for p in engine.players if p.id == "p2")
-    # p1 was SB (-10), p2 was BB (-20); each gets 15 back → p1=1005, p2=995
-    assert p1.chips == 1005
-    assert p2.chips == 995
+    # p1 posted SB (10), p2 posted BB (20). On a TIE with unequal contributions,
+    # the main pot (20) splits 10/10 and p2's uncalled extra 10 is returned —
+    # so both net zero (1000 each). (Splitting the whole 30 evenly would wrongly
+    # let the short contributor profit.)
+    assert p1.chips == 1000
+    assert p2.chips == 1000
+
+
+def test_side_pot_three_way_allin():
+    """Unequal all-ins build a main pot + side pot awarded independently."""
+    engine = PokerEngine()
+    engine.add_player("short", "S", 100)
+    engine.add_player("mid", "M", 300)
+    engine.add_player("big", "B", 1000)
+
+    engine.state = GameState.RIVER
+    engine.community_cards = [
+        Card(Rank.TWO, Suit.CLUBS), Card(Rank.SEVEN, Suit.DIAMONDS),
+        Card(Rank.NINE, Suit.HEARTS), Card(Rank.JACK, Suit.SPADES),
+        Card(Rank.FOUR, Suit.CLUBS),
+    ]
+    # short has the best hand (AA), mid second (KK), big worst (QQ).
+    engine.players[0].hand = [Card(Rank.ACE, Suit.HEARTS), Card(Rank.ACE, Suit.SPADES)]
+    engine.players[1].hand = [Card(Rank.KING, Suit.HEARTS), Card(Rank.KING, Suit.SPADES)]
+    engine.players[2].hand = [Card(Rank.QUEEN, Suit.HEARTS), Card(Rank.QUEEN, Suit.SPADES)]
+    # Contributions: short 100 (all-in), mid 300 (all-in), big 300 (call).
+    for p, amt in [(engine.players[0], 100), (engine.players[1], 300), (engine.players[2], 300)]:
+        p.chips -= amt
+        p.total_bet = amt
+        engine.pot += amt
+
+    engine._resolve_hand()
+
+    short = next(p for p in engine.players if p.id == "short")
+    mid = next(p for p in engine.players if p.id == "mid")
+    big = next(p for p in engine.players if p.id == "big")
+    # Main pot = 100*3 = 300 → short (best). Side pot = (300-100)*2 = 400 → mid.
+    assert short.chips == 300          # 0 left + 300 main pot
+    assert mid.chips == 400            # 0 left + 400 side pot
+    assert big.chips == 700            # 700 uncommitted remainder, wins nothing
+    assert short.chips + mid.chips + big.chips == 1400  # chips conserved
+    assert set(engine.winners) == {"short", "mid"}
+
+
+def test_uncalled_bet_returned():
+    """An uncalled overbet is returned to the bettor (single-eligible side pot)."""
+    engine = PokerEngine()
+    engine.add_player("a", "A", 1000)
+    engine.add_player("b", "B", 1000)
+    engine.state = GameState.RIVER
+    engine.community_cards = [
+        Card(Rank.TWO, Suit.CLUBS), Card(Rank.SEVEN, Suit.DIAMONDS),
+        Card(Rank.NINE, Suit.HEARTS), Card(Rank.JACK, Suit.SPADES),
+        Card(Rank.FOUR, Suit.CLUBS),
+    ]
+    engine.players[0].hand = [Card(Rank.ACE, Suit.HEARTS), Card(Rank.ACE, Suit.SPADES)]
+    engine.players[1].hand = [Card(Rank.KING, Suit.HEARTS), Card(Rank.KING, Suit.SPADES)]
+    # A committed 200, B committed 80 then folded → A's extra 120 is uncalled.
+    engine.players[0].total_bet = 200
+    engine.players[0].chips -= 200
+    engine.players[1].total_bet = 80
+    engine.players[1].chips -= 80
+    engine.players[1].is_active = False  # B folded
+    engine.pot = 280
+
+    engine._resolve_hand()
+    a = next(p for p in engine.players if p.id == "a")
+    # A wins the 160 matched pot AND gets the 120 uncalled back → net +80.
+    assert a.chips == 1000 + 80
 
 
 # ---------------------------------------------------------------------------
 # Dealer Rotation Tests
 # ---------------------------------------------------------------------------
+
+def test_ante_collected_without_inflating_bet():
+    """Antes are added to the pot but must not raise the current bet to call."""
+    engine = PokerEngine()
+    engine.ante = 10
+    engine.add_player("a", "A", 1000)
+    engine.add_player("b", "B", 1000)
+    engine.add_player("c", "C", 1000)
+    engine.start_hand()
+
+    # 3 antes (30) + SB (10) + BB (20) = 60 in the pot.
+    assert engine.pot == 60
+    # Antes are dead money — the bet to call is still just the big blind.
+    assert engine.current_bet == engine.big_blind
+    # Every active player contributed their ante.
+    assert sum(p.total_bet for p in engine.players) == 60
+
 
 def test_dealer_rotation():
     """After the first hand, dealer_idx advances and SB/BB positions shift."""
