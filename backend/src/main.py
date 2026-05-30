@@ -525,7 +525,7 @@ def _setup_new_tournament(req: StartGameRequest) -> None:
 
 
 @app.post('/start-game')
-async def start_game(config: StartGameRequest | None = None) -> dict[str, str]:
+async def start_game(config: Optional[StartGameRequest] = None) -> dict[str, str]:
     _setup_new_tournament(config or StartGameRequest())
     _prepare_hand()
     engine.start_hand()
