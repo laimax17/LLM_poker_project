@@ -21,7 +21,8 @@ class Player:
     is_active: bool = True
     current_bet: int = 0
     is_all_in: bool = False
-    has_acted: bool = False 
+    has_acted: bool = False
+    total_bet: int = 0  # total chips committed this hand (for side-pot math)
 
     def to_dict(self):
         return {
@@ -194,6 +195,7 @@ class PokerEngine:
             p.current_bet = 0
             p.is_all_in = False
             p.has_acted = False
+            p.total_bet = 0
 
         active_count = sum(1 for p in self.players if p.is_active)
         if active_count < 2:
@@ -235,6 +237,7 @@ class PokerEngine:
         actual = min(player.chips, amount)
         player.chips -= actual
         player.current_bet += actual
+        player.total_bet += actual
         self.pot += actual
         if player.chips == 0:
             player.is_all_in = True
@@ -356,31 +359,65 @@ class PokerEngine:
             winner_by_fold.chips += self.pot
             self.winners = [winner_by_fold.id]
             self.winning_hand_rank = "Opponents Folded"
-        else:
-            active_players = [p for p in self.players if p.is_active]
-            results = []
-            for p in active_players:
-                rank, tiebreakers = HandEvaluator.evaluate(p.hand + self.community_cards)
-                results.append((p, rank, tiebreakers))
-            
-            results.sort(key=lambda x: (x[1].value, x[2]), reverse=True)
-            
-            if not results:
-                return 
+            self.state = GameState.FINISHED
+            return
 
-            best = results[0]
-            winners_list = [r[0] for r in results if r[1].value == best[1].value and r[2] == best[2]]
-            
-            split = self.pot // len(winners_list)
-            rem = self.pot % len(winners_list)
-            
-            for w in winners_list:
-                w.chips += split
-            winners_list[0].chips += rem
-            
-            self.winners = [w.id for w in winners_list]
-            self.winning_hand_rank = best[1].name.replace("_", " ").title()
-            self.winning_cards = HandEvaluator.best_five(best[0].hand + self.community_cards)
+        # ── Showdown with correct main-pot / side-pot distribution ──
+        active_players = [p for p in self.players if p.is_active]
+        if not active_players:
+            self.state = GameState.FINISHED
+            return
+
+        # Best 5-card strength for every player still in the hand.
+        strength: dict[str, tuple] = {}
+        for p in active_players:
+            rank, tiebreakers = HandEvaluator.evaluate(p.hand + self.community_cards)
+            strength[p.id] = (rank.value, tiebreakers)
+
+        # Build side pots from EVERY contributor's total commitment (folded
+        # players' chips stay in the pot but they cannot win).
+        contributors = [p for p in self.players if p.total_bet > 0]
+        levels = sorted({p.total_bet for p in contributors})
+
+        pots: list[tuple[int, list]] = []  # (amount, eligible active players)
+        prev = 0
+        for cap in levels:
+            layer = cap - prev
+            in_layer = [p for p in contributors if p.total_bet >= cap]
+            amount = layer * len(in_layer)
+            eligible = [p for p in in_layer if p.is_active]
+            pots.append((amount, eligible))
+            prev = cap
+
+        winners_order: list[str] = []
+        carry = 0  # money from a pot with no eligible winner, carried forward
+        for amount, eligible in pots:
+            amount += carry
+            carry = 0
+            if not eligible:
+                carry = amount
+                continue
+            best_key = max(strength[p.id] for p in eligible)
+            pot_winners = [p for p in eligible if strength[p.id] == best_key]
+            share = amount // len(pot_winners)
+            rem = amount % len(pot_winners)
+            for w in pot_winners:
+                w.chips += share
+                if w.id not in winners_order:
+                    winners_order.append(w.id)
+            pot_winners[0].chips += rem  # odd chip → first winner
+        if carry:  # safety: unawarded chips go to the strongest hand
+            best = max(active_players, key=lambda p: strength[p.id])
+            best.chips += carry
+            if best.id not in winners_order:
+                winners_order.append(best.id)
+
+        # Banner reflects the strongest hand shown at showdown.
+        best_player = max(active_players, key=lambda p: strength[p.id])
+        best_rank_value = strength[best_player.id][0]
+        self.winners = winners_order
+        self.winning_hand_rank = HandRank(best_rank_value).name.replace("_", " ").title()
+        self.winning_cards = HandEvaluator.best_five(best_player.hand + self.community_cards)
 
         self.state = GameState.FINISHED
 
