@@ -49,8 +49,8 @@ const PlayerBox: React.FC<PlayerBoxProps> = ({
   const boxStyle: React.CSSProperties = {
     background: 'rgba(10, 9, 0, 0.88)',
     border: '2px solid var(--brown)',
-    padding: compact ? '5px 8px' : '10px 14px',
-    width: compact ? 150 : 260,
+    padding: compact ? '6px 8px' : '10px 12px',
+    width: compact ? 124 : 170,
     clipPath: 'var(--clip-sm)',
     opacity: isFolded ? 0.3 : 1,
     flexShrink: 0,
@@ -130,7 +130,8 @@ const PlayerBox: React.FC<PlayerBoxProps> = ({
           {/* Bot name */}
           <div style={{
             fontFamily: 'var(--font-ui)',
-            fontSize: compact ? 10 : 14,
+            fontSize: compact ? 12 : 16,
+            fontWeight: 600,
             color: 'var(--gold)',
             marginBottom: 3,
             overflow: 'hidden',
@@ -142,7 +143,8 @@ const PlayerBox: React.FC<PlayerBoxProps> = ({
 
           {/* Chips — key replays numUpdate animation when chips change */}
           <div style={{
-            fontSize: compact ? 9 : 11,
+            fontSize: compact ? 12 : 15,
+            fontWeight: 700,
             color: 'var(--gold-l)',
             marginBottom: 3,
             fontFamily: 'var(--font-label)',
@@ -157,7 +159,8 @@ const PlayerBox: React.FC<PlayerBoxProps> = ({
 
           {/* Status */}
           <div style={{
-            fontSize: compact ? 8 : 10,
+            fontSize: compact ? 10 : 13,
+            fontWeight: 600,
             color: status.color,
             fontFamily: 'var(--font-label)',
             display: 'flex',
@@ -188,7 +191,7 @@ const PlayerBox: React.FC<PlayerBoxProps> = ({
                   return (
                     <Card
                       key={i}
-                      size={compact ? 'sm' : 'md'}
+                      size={compact ? 'xs' : 'sm'}
                       variant="face-up"
                       rank={card.rank}
                       suit={card.suit}
@@ -200,8 +203,8 @@ const PlayerBox: React.FC<PlayerBoxProps> = ({
               </>
             ) : (
               <>
-                <Card size={compact ? 'sm' : 'md'} variant="face-down" />
-                <Card size={compact ? 'sm' : 'md'} variant="face-down" />
+                <Card size={compact ? 'xs' : 'sm'} variant="face-down" />
+                <Card size={compact ? 'xs' : 'sm'} variant="face-down" />
               </>
             )}
           </div>

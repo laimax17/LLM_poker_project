@@ -29,9 +29,10 @@ const HoleCards: React.FC<HoleCardsProps> = ({ cards, isHumanTurn, handCount, wi
     }}>
       {/* YOUR HAND label */}
       <div style={{
-        fontSize: 7,
+        fontSize: 13,
+        fontWeight: 700,
         color: 'var(--gold-d)',
-        letterSpacing: 2,
+        letterSpacing: 1,
         animation: 'blink 1s steps(1) infinite',
         fontFamily: 'var(--font-label)',
         whiteSpace: 'nowrap',
@@ -42,12 +43,12 @@ const HoleCards: React.FC<HoleCardsProps> = ({ cards, isHumanTurn, handCount, wi
       {/* Two hole cards */}
       <div style={{ display: 'flex', gap: 12 }}>
         {cards.slice(0, 2).map((card, i) => {
-          if (!card) return <Card key={`${handCount}-${i}`} size="md" variant="face-down" />;
+          if (!card) return <Card key={`${handCount}-${i}`} size="lg" variant="face-down" />;
           const win = isWinCard(card, winningCards);
           return (
             <Card
               key={`${handCount}-${i}`}
-              size="md"
+              size="lg"
               variant="face-up"
               rank={card.rank}
               suit={card.suit}
