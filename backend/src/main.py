@@ -33,6 +33,7 @@ from .ai.providers import (
 )
 from .ai.strategy import BotStrategy
 from .ai.opponent_model import OpponentModel
+from .ai.banter import get_banter
 from .ai.showdown import equities_payload
 from .learning import LearningTracker
 from .tournament import TournamentManager, TournamentConfig
@@ -106,6 +107,10 @@ _hand_open: bool = False  # True between begin_hand and hand-end commit
 # ─── Tournament ───────────────────────────────────────────────────────────────
 _tournament = TournamentManager()
 _pending_level_up: bool = False  # set when a hand starts at a new blind level
+
+# ─── Living opponents (banter + tilt) ─────────────────────────────────────────
+_BOT_PERSONALITY: dict[str, str] = {p['id']: p['personality'] for p in BOT_PROFILES}
+_chips_at_hand_start: dict[str, int] = {}
 
 
 # ─── Strategy factory ─────────────────────────────────────────────────────────
@@ -205,10 +210,47 @@ def _prepare_hand() -> None:
 
 def _begin_hand() -> None:
     """Common per-hand setup for the learning tracker and opponent model."""
-    global _hand_open
+    global _hand_open, _chips_at_hand_start
     _tracker.begin_hand(_human_chips())
     _opponents.begin_hand()
+    _chips_at_hand_start = {p.id: p.chips for p in engine.players}
+    # Tilt cools off each hand.
+    for strat in _bot_strategies.values():
+        tilt = getattr(strat, 'tilt', 0.0)
+        if tilt > 0:
+            strat.tilt = tilt * 0.5 if tilt * 0.5 >= 0.1 else 0.0
     _hand_open = True
+
+
+async def _settle_living_opponents() -> None:
+    """At hand end: set tilt on big losers and emit reactive bot banter."""
+    if not _chips_at_hand_start:
+        return
+    bb = max(1, engine.big_blind)
+    events: list[tuple[int, str, str]] = []  # (priority, bot_id, event)
+    for p in engine.players:
+        if p.id == 'human':
+            continue
+        start = _chips_at_hand_start.get(p.id)
+        if start is None:
+            continue
+        delta = p.chips - start
+        if p.chips <= 0 and start > 0:
+            events.append((3, p.id, 'eliminated'))
+        elif delta >= max(start * 0.5, bb * 8):
+            event = 'doubled_up' if p.chips >= start * 2 else 'won_big'
+            events.append((2, p.id, event))
+        elif delta <= -max(start * 0.4, bb * 6):
+            events.append((1, p.id, 'lost_big'))
+            strat = _bot_strategies.get(p.id)
+            if strat is not None and hasattr(strat, 'tilt'):
+                strat.tilt = min(1.0, strat.tilt + 0.8)
+    # Emit at most two reactions, highest priority first, to avoid chat spam.
+    events.sort(key=lambda e: e[0], reverse=True)
+    for _prio, bot_id, event in events[:2]:
+        line = get_banter(event, _BOT_PERSONALITY.get(bot_id, 'shark'), _locale)
+        if line:
+            await sio.emit('ai_thought', {'player_id': bot_id, 'thought': event, 'chat': line})
 
 
 def _players_summary() -> list[dict[str, Any]]:
@@ -302,6 +344,7 @@ async def broadcast_state() -> None:
     if _hand_open and engine.state.value in ('SHOWDOWN', 'FINISHED'):
         _opponents.commit_hand()
         _hand_open = False
+        await _settle_living_opponents()
         await _settle_tournament_hand()
 
     # ── Learning Mode hooks ──
