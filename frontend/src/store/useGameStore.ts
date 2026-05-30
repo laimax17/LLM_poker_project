@@ -13,6 +13,7 @@ import type {
   StandingEntry,
   EliminationEvent,
   GameSetupConfig,
+  AllInEquity,
 } from '../types';
 import {
   playCardDeal,
@@ -82,6 +83,7 @@ interface GameStore {
   standings: StandingEntry[] | null;
   lastElimination: EliminationEvent | null;
   levelUpFlash: { level: number; smallBlind: number; bigBlind: number } | null;
+  allinEquity: AllInEquity | null;
 
   // Actions
   connect: () => void;
@@ -129,6 +131,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
   standings: null,
   lastElimination: null,
   levelUpFlash: null,
+  allinEquity: null,
 
   connect: () => {
     const socket = io(BACKEND_URL, {
@@ -186,6 +189,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
         gameState: data,
         handCount: isNewHand ? state.handCount + 1 : state.handCount,
         actionInFlight: false,  // server responded → clear in-flight lock
+        allinEquity: isNewHand ? null : state.allinEquity,
       }));
     });
 
@@ -296,6 +300,13 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
     socket.on('tournament_over', (data: { standings: StandingEntry[] }) => {
       set({ standings: data.standings });
+    });
+
+    socket.on('allin_equity', (data: AllInEquity) => {
+      set({ allinEquity: data });
+      setTimeout(() => {
+        set(state => (state.allinEquity === data ? { allinEquity: null } : state));
+      }, 7000);
     });
 
     socket.on('llm_status', (data: { status: 'online' | 'offline' }) => {

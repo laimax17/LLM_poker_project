@@ -33,6 +33,7 @@ from .ai.providers import (
 )
 from .ai.strategy import BotStrategy
 from .ai.opponent_model import OpponentModel
+from .ai.showdown import equities_payload
 from .learning import LearningTracker
 from .tournament import TournamentManager, TournamentConfig
 
@@ -214,6 +215,27 @@ def _players_summary() -> list[dict[str, Any]]:
     return [{'id': p.id, 'name': p.name, 'chips': p.chips} for p in engine.players]
 
 
+async def _maybe_emit_allin_equity(board_before: list, street_before: str) -> None:
+    """If the last action triggered an all-in run-out, emit each contestant's
+    win% computed on the board *before* the run-out (broadcast-style drama)."""
+    if engine.state.value not in ('SHOWDOWN', 'FINISHED'):
+        return
+    if len(engine.community_cards) <= len(board_before):
+        return  # no cards were dealt by that action → not a run-out
+    contestants = [
+        (p.id, p.name, list(p.hand))
+        for p in engine.players if p.is_active and len(p.hand) == 2
+    ]
+    if len(contestants) < 2:
+        return
+    try:
+        payload = equities_payload(contestants, list(board_before))
+        payload['street'] = street_before
+        await sio.emit('allin_equity', payload)
+    except Exception as exc:  # pragma: no cover - defensive
+        logger.warning('all-in equity computation failed: %s', exc)
+
+
 def _observe(player_id: str, street: str, action: str) -> None:
     """Feed one observed action into the opponent model (always on)."""
     _opponents.observe(player_id, street, action)
@@ -353,6 +375,8 @@ async def check_ai_turn() -> None:
 
             actual_action = decision.action
             actual_amount = decision.amount
+            board_before = list(engine.community_cards)
+            street_before = engine.state.value
             try:
                 engine.player_action(current_p.id, decision.action, decision.amount)
             except Exception as exc:
@@ -365,6 +389,7 @@ async def check_ai_turn() -> None:
                     pass
 
             _observe(current_p.id, bot_street, actual_action)
+            await _maybe_emit_allin_equity(board_before, street_before)
 
             await sio.emit('player_acted', {
                 'player_id': current_p.id,
@@ -487,8 +512,10 @@ async def player_action(sid: str, data: dict[str, Any]) -> None:
             _pending_hint = None
 
         human_street = engine.state.value
+        board_before = list(engine.community_cards)
         engine.player_action('human', action, amount)
         _observe('human', human_street, action)
+        await _maybe_emit_allin_equity(board_before, human_street)
         await sio.emit('player_acted', {
             'player_id': 'human',
             'player_name': 'PLAYER',

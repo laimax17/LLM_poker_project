@@ -12,6 +12,7 @@ import SessionStatsPanel from './components/learning/SessionStatsPanel';
 import SetupLobby from './components/lobby/SetupLobby';
 import TournamentHUD from './components/table/TournamentHUD';
 import StandingsModal from './components/table/StandingsModal';
+import AllInEquityOverlay from './components/table/AllInEquityOverlay';
 
 function App() {
   const { t, locale, setLocale } = useT();
@@ -49,6 +50,7 @@ function App() {
     closeStandings,
     lastElimination,
     levelUpFlash,
+    allinEquity,
   } = useGameStore();
 
   const [showMenu, setShowMenu] = useState(false);
@@ -316,6 +318,9 @@ function App() {
           onPlayAgain={() => { closeStandings(); resetGame(); }}
         />
       )}
+
+      {/* ─── All-in equity overlay ─── */}
+      {allinEquity && <AllInEquityOverlay data={allinEquity} />}
 
       {/* ─── Tournament: blind level-up flash ─── */}
       {levelUpFlash && (

@@ -166,6 +166,18 @@ export interface EliminationEvent {
   place: number;
 }
 
+export interface AllInEquityPlayer {
+  id: string;
+  name: string;
+  equity: number;
+}
+
+export interface AllInEquity {
+  street: string;
+  board: Card[];
+  players: AllInEquityPlayer[];
+}
+
 export interface PlayerAction {
   player_id: string;
   player_name: string;

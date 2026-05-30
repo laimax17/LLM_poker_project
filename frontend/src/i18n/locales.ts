@@ -109,6 +109,9 @@ const locales: Record<Locale, Record<string, string>> = {
     'tour.playAgain': '▶ PLAY AGAIN',
     'tour.blindsUp': 'BLINDS UP',
 
+    // All-in
+    'allin.title': 'ALL-IN EQUITY',
+
     // Language
     'lang.select': 'SELECT LANGUAGE',
   },
@@ -209,6 +212,9 @@ const locales: Record<Locale, Record<string, string>> = {
     'tour.yourFinish': '你的名次',
     'tour.playAgain': '▶ 再来一局',
     'tour.blindsUp': '升盲',
+
+    // All-in
+    'allin.title': '全下胜率',
 
     'lang.select': '选择语言',
   },
