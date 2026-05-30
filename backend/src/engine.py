@@ -160,6 +160,7 @@ class PokerEngine:
         self.current_player_idx: int = 0
         self.small_blind: int = 10
         self.big_blind: int = 20
+        self.ante: int = 0
         self.min_raise: int = 20
         self.raise_count: int = 0
         self.max_raises_per_street: int = 4
@@ -219,6 +220,17 @@ class PokerEngine:
         while not self.players[bb_idx].is_active and steps < len(self.players):
             bb_idx = (bb_idx + 1) % len(self.players)
             steps += 1
+
+        # Post antes (dead money — added to the pot, do NOT affect the bet to call).
+        if self.ante > 0:
+            for ap in self.players:
+                if ap.is_active:
+                    a = min(self.ante, ap.chips)
+                    ap.chips -= a
+                    ap.total_bet += a
+                    self.pot += a
+                    if ap.chips == 0:
+                        ap.is_all_in = True
 
         self._place_bet_logic(self.players[sb_idx], self.small_blind)
         self._place_bet_logic(self.players[bb_idx], self.big_blind)

@@ -253,6 +253,33 @@ async def _settle_living_opponents() -> None:
             await sio.emit('ai_thought', {'player_id': bot_id, 'thought': event, 'chat': line})
 
 
+def _post_antes() -> None:
+    """Post antes for the current blind level (tournament layer, no engine change).
+
+    Antes are dead money: they go into the pot and each player's total_bet (so
+    side pots stay correct) but are NOT a bet to call, so current_bet is left
+    untouched and the normal betting round proceeds against the big blind.
+    """
+    ante = _tournament.current_ante() if _tournament.active else 0
+    if ante <= 0:
+        return
+    for p in engine.players:
+        if not p.is_active or p.chips <= 0:
+            continue
+        amt = min(p.chips, ante)
+        p.chips -= amt
+        p.total_bet += amt
+        engine.pot += amt
+        if p.chips == 0:
+            p.is_all_in = True
+    # If antes put the to-act player all-in, advance to the next able player.
+    n = len(engine.players)
+    guard = 0
+    while n and engine.players[engine.current_player_idx].is_all_in and guard < n:
+        engine.current_player_idx = (engine.current_player_idx + 1) % n
+        guard += 1
+
+
 def _players_summary() -> list[dict[str, Any]]:
     return [{'id': p.id, 'name': p.name, 'chips': p.chips} for p in engine.players]
 
@@ -502,6 +529,7 @@ async def start_game(config: StartGameRequest | None = None) -> dict[str, str]:
     _prepare_hand()
     engine.start_hand()
     _begin_hand()
+    _post_antes()
     await broadcast_state()
     await check_ai_turn()
     return {'status': 'started'}
@@ -579,6 +607,7 @@ async def start_next_hand(sid: str, data: dict[str, Any]) -> None:
         _prepare_hand()
         engine.start_hand()
         _begin_hand()
+        _post_antes()
         await broadcast_state()
         await check_ai_turn()
     except ValueError as exc:
@@ -673,6 +702,7 @@ async def reset_game(sid: str, data: dict[str, Any]) -> None:
     _prepare_hand()
     engine.start_hand()
     _begin_hand()
+    _post_antes()
     await broadcast_state()
     await check_ai_turn()
 

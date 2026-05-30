@@ -582,6 +582,23 @@ def test_uncalled_bet_returned():
 # Dealer Rotation Tests
 # ---------------------------------------------------------------------------
 
+def test_ante_collected_without_inflating_bet():
+    """Antes are added to the pot but must not raise the current bet to call."""
+    engine = PokerEngine()
+    engine.ante = 10
+    engine.add_player("a", "A", 1000)
+    engine.add_player("b", "B", 1000)
+    engine.add_player("c", "C", 1000)
+    engine.start_hand()
+
+    # 3 antes (30) + SB (10) + BB (20) = 60 in the pot.
+    assert engine.pot == 60
+    # Antes are dead money — the bet to call is still just the big blind.
+    assert engine.current_bet == engine.big_blind
+    # Every active player contributed their ante.
+    assert sum(p.total_bet for p in engine.players) == 60
+
+
 def test_dealer_rotation():
     """After the first hand, dealer_idx advances and SB/BB positions shift."""
     engine = PokerEngine()

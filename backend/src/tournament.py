@@ -19,6 +19,9 @@ BLIND_LEVELS: list[tuple[int, int]] = [
     (150, 300), (200, 400), (300, 600), (500, 1000), (750, 1500), (1000, 2000),
 ]
 
+# Antes by level (parallel to BLIND_LEVELS); kick in from level 4 onward.
+ANTE_BY_LEVEL: list[int] = [0, 0, 0, 10, 15, 25, 30, 50, 75, 100, 150, 200]
+
 # blind_speed -> hands per level
 SPEED_HANDS_PER_LEVEL: dict[str, int] = {'turbo': 5, 'normal': 10, 'slow': 20}
 
@@ -89,6 +92,9 @@ class TournamentManager:
 
     def current_blinds(self) -> tuple[int, int]:
         return BLIND_LEVELS[min(self.level, len(BLIND_LEVELS) - 1)]
+
+    def current_ante(self) -> int:
+        return ANTE_BY_LEVEL[min(self.level, len(ANTE_BY_LEVEL) - 1)]
 
     def hands_until_next_level(self) -> int:
         if self.level >= len(BLIND_LEVELS) - 1:
@@ -167,6 +173,7 @@ class TournamentManager:
             'level': self.level + 1,
             'smallBlind': sb,
             'bigBlind': bb,
+            'ante': self.current_ante(),
             'handsUntilNextLevel': self.hands_until_next_level(),
             'playersRemaining': alive,
             'totalPlayers': self.total_players,

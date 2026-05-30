@@ -100,6 +100,7 @@ const locales: Record<Locale, Record<string, string>> = {
     // Tournament
     'tour.level': 'LEVEL',
     'tour.blinds': 'BLINDS',
+    'tour.ante': 'ANTE',
     'tour.nextLevel': 'NEXT LVL',
     'tour.remaining': 'LEFT',
     'tour.place': 'RANK',
@@ -216,6 +217,7 @@ const locales: Record<Locale, Record<string, string>> = {
     // Tournament
     'tour.level': '级别',
     'tour.blinds': '盲注',
+    'tour.ante': '前注',
     'tour.nextLevel': '下一级',
     'tour.remaining': '存活',
     'tour.place': '排名',

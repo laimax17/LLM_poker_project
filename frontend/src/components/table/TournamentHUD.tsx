@@ -46,6 +46,7 @@ const TournamentHUD: React.FC<TournamentHUDProps> = ({ tournament }) => {
     >
       {cell(t('tour.level'), tournament.level)}
       {cell(t('tour.blinds'), `${tournament.smallBlind}/${tournament.bigBlind}`)}
+      {tournament.ante > 0 && cell(t('tour.ante'), tournament.ante)}
       {cell(
         t('tour.nextLevel'),
         tournament.handsUntilNextLevel > 0 ? `${tournament.handsUntilNextLevel}h` : 'MAX',

@@ -146,6 +146,7 @@ export interface TournamentState {
   level: number;
   smallBlind: number;
   bigBlind: number;
+  ante: number;
   handsUntilNextLevel: number;
   playersRemaining: number;
   totalPlayers: number;
