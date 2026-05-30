@@ -57,12 +57,13 @@ const HumanPanel: React.FC<HumanPanelProps> = ({
       {/* YOUR TURN indicator — blinks when it's the human's action */}
       {isHumanTurn && (
         <div style={{
-          fontSize: 7,
+          fontSize: 14,
+          fontWeight: 700,
           color: 'var(--gold)',
           fontFamily: 'var(--font-label)',
-          letterSpacing: 2,
+          letterSpacing: 1,
           animation: 'blink 0.6s steps(1) infinite',
-          marginBottom: 5,
+          marginBottom: 6,
           textAlign: 'center',
         }}>
           ◈ {t('human.yourTurn')}
@@ -72,11 +73,12 @@ const HumanPanel: React.FC<HumanPanelProps> = ({
       {/* YOU tag */}
       <div style={{
         display: 'inline-block',
-        fontSize: 7,
+        fontSize: 12,
+        fontWeight: 700,
         background: 'var(--gold)',
         color: '#000',
-        padding: '2px 6px',
-        marginBottom: 6,
+        padding: '3px 9px',
+        marginBottom: 7,
         fontFamily: 'var(--font-label)',
       }}>
         {t('human.you')}
@@ -85,7 +87,8 @@ const HumanPanel: React.FC<HumanPanelProps> = ({
       {/* Player name */}
       <div style={{
         fontFamily: 'var(--font-ui)',
-        fontSize: 14,
+        fontSize: 19,
+        fontWeight: 600,
         color: 'var(--gold-l)',
         textShadow: '0 0 8px rgba(232,208,128,0.5)',
         marginBottom: 5,
@@ -96,7 +99,8 @@ const HumanPanel: React.FC<HumanPanelProps> = ({
 
       {/* Chips — key replays numUpdate animation when chips change */}
       <div style={{
-        fontSize: 11,
+        fontSize: 22,
+        fontWeight: 700,
         color: 'var(--gold)',
         marginBottom: 4,
         fontFamily: 'var(--font-label)',
@@ -111,12 +115,13 @@ const HumanPanel: React.FC<HumanPanelProps> = ({
 
       {/* Position + status */}
       <div style={{
-        fontSize: 8,
+        fontSize: 13,
+        fontWeight: 600,
         color: ip ? '#66cc88' : 'var(--gold-d)',
         fontFamily: 'var(--font-label)',
         display: 'flex',
         alignItems: 'center',
-        gap: 4,
+        gap: 5,
       }}>
         <span style={{ color: ip ? '#66cc88' : '#cc6666' }}>●</span>
         {posLabel && <span>{posLabel}</span>}
@@ -126,8 +131,9 @@ const HumanPanel: React.FC<HumanPanelProps> = ({
       {/* Current bet if any */}
       {player.current_bet > 0 && (
         <div style={{
-          marginTop: 4,
-          fontSize: 7,
+          marginTop: 5,
+          fontSize: 13,
+          fontWeight: 600,
           color: '#ffcc00',
           fontFamily: 'var(--font-label)',
         }}>

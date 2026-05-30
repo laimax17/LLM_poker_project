@@ -104,7 +104,7 @@ const ActionBar: React.FC<ActionBarProps> = ({
     : null;
 
   // Shared small-button style for raise controls
-  const smBtn: React.CSSProperties = { fontSize: 9, padding: '7px 8px', borderColor: 'var(--gold-d)', color: 'var(--gold-d)' };
+  const smBtn: React.CSSProperties = { fontSize: 14, fontWeight: 600, minHeight: 44, padding: '9px 14px', borderColor: 'var(--gold-d)', color: 'var(--gold-l)' };
 
   return (
     <div style={{
@@ -127,7 +127,7 @@ const ActionBar: React.FC<ActionBarProps> = ({
         {/* FOLD */}
         <button
           className="abtn abtn-fold"
-          style={{ height: 46 }}
+          style={{ height: 58 }}
           disabled={disabled}
           onClick={() => onAction('fold', 0)}
         >
@@ -138,7 +138,7 @@ const ActionBar: React.FC<ActionBarProps> = ({
         {canCheck && (
           <button
             className="abtn abtn-check"
-            style={{ height: 46, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 2 }}
+            style={{ height: 58, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 2 }}
             disabled={disabled}
             onClick={() => onAction('check', 0)}
           >
@@ -152,7 +152,7 @@ const ActionBar: React.FC<ActionBarProps> = ({
         {canCall && (
           <button
             className="abtn abtn-call"
-            style={{ height: 46, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 2 }}
+            style={{ height: 58, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 2 }}
             disabled={disabled}
             onClick={() => onAction('call', 0)}
           >
@@ -166,7 +166,7 @@ const ActionBar: React.FC<ActionBarProps> = ({
         {/* ASK AI */}
         <button
           className="abtn abtn-ai"
-          style={{ height: 46 }}
+          style={{ height: 58 }}
           disabled={isRequestingAdvice}
           onClick={onAskAI}
         >
@@ -183,12 +183,12 @@ const ActionBar: React.FC<ActionBarProps> = ({
           gap: 8,
           justifyContent: 'center',
           alignItems: 'center',
-          height: 46,
+          height: 58,
           visibility: canRaise ? 'visible' : 'hidden',
         }}>
           <button
             className="abtn abtn-raise"
-            style={{ height: 46 }}
+            style={{ height: 58 }}
             disabled={disabled}
             onClick={() => setShowRaiseSheet(true)}
           >
@@ -198,7 +198,7 @@ const ActionBar: React.FC<ActionBarProps> = ({
             className="abtn"
             disabled={disabled}
             onClick={() => onAction('allin', 0)}
-            style={{ height: 46, borderColor: '#aa2222', color: '#ff4444', fontSize: 7, padding: '4px 14px', lineHeight: 1.5 }}
+            style={{ height: 58, borderColor: '#aa2222', color: '#ff4444', fontSize: 14, fontWeight: 600, padding: '4px 16px', lineHeight: 1.3 }}
           >
             {t('action.allin')}<br />${human?.chips}
           </button>
@@ -210,7 +210,7 @@ const ActionBar: React.FC<ActionBarProps> = ({
           gap: 8,
           justifyContent: 'center',
           alignItems: 'center',
-          height: 46,
+          height: 58,
           visibility: canRaise ? 'visible' : 'hidden',
           flexWrap: 'nowrap',
           overflow: 'hidden',
@@ -293,7 +293,7 @@ const ActionBar: React.FC<ActionBarProps> = ({
             className="abtn"
             disabled={disabled}
             onClick={() => onAction('allin', 0)}
-            style={{ borderColor: '#aa2222', color: '#ff4444', fontSize: 7, padding: '4px 10px', lineHeight: 1.5 }}
+            style={{ borderColor: '#aa2222', color: '#ff4444', fontSize: 14, fontWeight: 600, padding: '4px 14px', lineHeight: 1.3 }}
           >
             {t('action.allin')}<br />${human?.chips}<Hint k="A" />
           </button>
