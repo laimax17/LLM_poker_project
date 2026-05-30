@@ -206,6 +206,7 @@ def _prepare_hand() -> None:
         sb, bb = _tournament.current_blinds()
         engine.small_blind = sb
         engine.big_blind = bb
+        engine.ante = _tournament.current_ante()
 
 
 def _begin_hand() -> None:
