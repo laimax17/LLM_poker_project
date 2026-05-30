@@ -19,8 +19,8 @@ const HoleCards: React.FC<HoleCardsProps> = ({ cards, isHumanTurn, handCount, wi
   return (
     <div style={{
       position: 'absolute',
-      bottom: 24,
-      left: '50%',
+      bottom: 14,
+      left: 'calc(50% - 128px)',
       transform: 'translateX(-50%)',
       display: 'flex',
       flexDirection: 'column',

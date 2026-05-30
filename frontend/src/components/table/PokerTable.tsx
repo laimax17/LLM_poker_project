@@ -144,11 +144,11 @@ const PokerTable: React.FC<PokerTableProps> = ({ gameState, handCount }) => {
           {/* Left bots (3) */}
           <div style={{
             position: 'absolute',
-            left: isMobile ? 6 : 16,
-            top: isMobile ? 16 : 28,
+            left: isMobile ? 6 : 12,
+            top: isMobile ? 16 : 14,
             display: 'flex',
             flexDirection: 'column',
-            gap: isMobile ? 6 : 20,
+            gap: isMobile ? 6 : 10,
           }}>
             {leftBots.map((bot, i) => {
               const playerIdx = i + 1; // bot 0→idx1, bot 1→idx2, bot 2→idx3
@@ -169,11 +169,11 @@ const PokerTable: React.FC<PokerTableProps> = ({ gameState, handCount }) => {
           {/* Right bots (2) */}
           <div style={{
             position: 'absolute',
-            right: isMobile ? 6 : 16,
-            top: isMobile ? 16 : 28,
+            right: isMobile ? 6 : 12,
+            top: isMobile ? 16 : 14,
             display: 'flex',
             flexDirection: 'column',
-            gap: isMobile ? 6 : 20,
+            gap: isMobile ? 6 : 10,
             alignItems: 'flex-end',
           }}>
             {rightBots.map((bot, i) => {
@@ -224,8 +224,8 @@ const PokerTable: React.FC<PokerTableProps> = ({ gameState, handCount }) => {
           {humanPlayer && (
             <div style={{
               position: 'absolute',
-              bottom: isMobile ? 10 : 20,
-              left: isMobile ? 'calc(50% + 68px)' : 'calc(50% + 90px)',
+              bottom: isMobile ? 10 : 14,
+              left: isMobile ? 'calc(50% + 78px)' : 'calc(50% + 96px)',
             }}>
               <HumanPanel
                 player={humanPlayer}
