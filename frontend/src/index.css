@@ -4,30 +4,39 @@
 
 :root {
   /* === Background === */
-  --bg:               #1a1008;
-  --surface:          #0a0900;
-  --surface2:         #120c04;
-  --felt-c:           #1a3a1a;
-  --felt-e:           #081508;
+  --bg:               #0b0f15;
+  --surface:          #161d27;
+  --surface2:         #1f2935;
+  --felt-c:           #1a6b4d;
+  --felt-e:           #0e4733;
+
+  /* === New layout tokens === */
+  --felt:             #1a6b4d;
+  --felt-edge:        #0e4733;
+  --rail:             #0b1f19;
+  --line:             #2c3743;
+  --text:             #f1ece0;
+  --text-dim:         #98a0ab;
+  --allin:            #e8743a;
 
   /* === Gold Palette === */
-  --gold:             #c8a040;
-  --gold-l:           #e8d080;
-  --gold-d:           #6b4c10;
-  --brown:            #3a2a08;
+  --gold:             #e7c264;
+  --gold-l:           #f6dd92;
+  --gold-d:           #8a6a26;
+  --brown:            #2c3743;
 
   /* === Functional Colors === */
-  --red:              #cc1111;
-  --black:            #111111;
-  --green-ok:         #66cc88;
+  --red:              #d6504a;
+  --black:            #1a1c22;
+  --green-ok:         #2fa566;
   --yellow-hot:       #ffcc00;
   --red-bad:          #cc6666;
 
   /* === Card Colors === */
-  --card-bg:          #ffffff;
-  --card-border:      #d0c8b8;
-  --card-back-bg:     #1c2a1c;
-  --card-back-border: #2a4a2a;
+  --card-bg:          #fbf8f0;
+  --card-border:      #c9c1ad;
+  --card-back-bg:     #21467a;
+  --card-back-border: #0e1b2e;
 
   /* === Typography — readable everywhere (incl. CJK) === */
   --font-rank:  Georgia, 'Times New Roman', serif;
@@ -170,6 +179,17 @@
 
 @keyframes spin {
   to { transform: rotate(360deg); }
+}
+
+@keyframes popIn {
+  0%   { transform: scale(0.6); opacity: 0; }
+  70%  { transform: scale(1.08); }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+@keyframes turn-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(231,194,100,0.0); }
+  50%      { box-shadow: 0 0 18px 2px rgba(231,194,100,0.55); }
 }
 
 /* Winning hand cards — pulsing teal/cyan glow */

@@ -23,11 +23,11 @@ const CommunityCards: React.FC<CommunityCardsProps> = ({ cards, winningCards }) 
           return (
             <Card
               key={`${card.rank}-${card.suit}`}
-              size="lg"
+              size="sm"
               variant="face-up"
               rank={card.rank}
               suit={card.suit}
-              glow={isWin ? 'win' : 'gold'}
+              glow={isWin ? 'win' : 'none'}
               style={{
                 animation: isWin
                   ? `cardReveal 0.32s ease-out ${i * 55}ms both, winCardPulse 1.1s 0.6s ease-in-out infinite`
@@ -39,7 +39,7 @@ const CommunityCards: React.FC<CommunityCardsProps> = ({ cards, winningCards }) 
         return (
           <Card
             key={`ph-${i}`}
-            size="lg"
+            size="sm"
             variant="placeholder"
           />
         );
