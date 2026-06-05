@@ -1,223 +1,237 @@
 import React from 'react';
 import type { Player, Card as CardType } from '../../types';
 import Card from '../card/Card';
-import BotSpeechBubble from './BotSpeechBubble';
-import ChipStack from '../table/ChipStack';
 import { useGameStore } from '../../store/useGameStore';
 import { useT } from '../../i18n/I18nContext';
 
 interface PlayerBoxProps {
   player: Player;
   isCurrentTurn: boolean;
-  chipBubbleSide: 'right' | 'left';
-  badge?: string;   // 'BTN' | 'SB' | 'BB' | 'UTG' | 'HJ' | 'CO'
+  badge?: string; // 'BTN' | 'SB' | 'BB' | ...
   winningCards?: CardType[];
-  compact?: boolean; // mobile landscape: smaller box, no speech bubble/chip bubble
+  compact?: boolean;
 }
+
+const AVATAR_COLORS = ['#d6504a', '#4aa3d6', '#9b6bd6', '#2fa566', '#e8743a', '#d6a84a'];
 
 function isWinCard(card: CardType, winningCards?: CardType[]): boolean {
-  return winningCards?.some(wc => wc.rank === card.rank && wc.suit === card.suit) ?? false;
+  return winningCards?.some((wc) => wc.rank === card.rank && wc.suit === card.suit) ?? false;
 }
 
-function getStatusText(
+function getStatus(
   player: Player,
   isCurrentTurn: boolean,
-  t: (key: string) => string,
+  t: (k: string) => string,
 ): { text: string; color: string } {
-  if (!player.is_active) return { text: t('status.fold'), color: 'var(--brown)' };
-  if (player.is_all_in)  return { text: t('status.allin'), color: '#ffcc00' };
-  if (isCurrentTurn)     return { text: t('status.thinking'), color: '#ffcc00' };
-  if (player.current_bet > 0) return { text: `${t('status.bet')} $${player.current_bet}`, color: '#ffcc00' };
-  return { text: t('status.waiting'), color: 'var(--gold-d)' };
+  if (!player.is_active) return { text: t('status.fold'), color: 'var(--text-dim)' };
+  if (player.is_all_in) return { text: t('status.allin'), color: 'var(--allin)' };
+  if (isCurrentTurn) return { text: t('status.thinking'), color: 'var(--gold-l)' };
+  return { text: '', color: 'var(--text-dim)' };
 }
 
-const PlayerBox: React.FC<PlayerBoxProps> = ({
-  player,
-  isCurrentTurn,
-  chipBubbleSide,
-  badge,
-  winningCards,
-  compact = false,
-}) => {
+// Stable colour per bot id
+function avatarColor(id: string): string {
+  let h = 0;
+  for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) >>> 0;
+  return AVATAR_COLORS[h % AVATAR_COLORS.length];
+}
+
+const PlayerBox: React.FC<PlayerBoxProps> = ({ player, isCurrentTurn, badge, winningCards, compact = false }) => {
   const { t } = useT();
+  const thought = useGameStore((s) => s.botThoughts[player.id]);
+  const isThinking = useGameStore((s) => s.thinkingBots[player.id] ?? false);
+
   const isFolded = !player.is_active;
-  const status = getStatusText(player, isCurrentTurn, t);
-  // Subscribe directly to this bot's current thought (avoids prop drilling)
-  const thought = useGameStore(s => s.botThoughts[player.id]);
-  const isThinking = useGameStore(s => s.thinkingBots[player.id] ?? false);
-
-  const boxStyle: React.CSSProperties = {
-    background: 'rgba(10, 9, 0, 0.88)',
-    border: '2px solid var(--brown)',
-    padding: compact ? '6px 8px' : '10px 12px',
-    width: compact ? 124 : 170,
-    clipPath: 'var(--clip-sm)',
-    opacity: isFolded ? 0.3 : 1,
-    flexShrink: 0,
-    transition: 'border-color 0.2s ease, box-shadow 0.2s ease',
-  };
-
-  const activeBoxStyle: React.CSSProperties = isCurrentTurn && player.is_active ? {
-    borderColor: 'var(--gold)',
-    boxShadow: '0 0 14px rgba(200,160,64,0.45)',
-    animation: 'gold-pulse 0.8s steps(1) infinite',
-  } : {};
-
-  // Show face-up cards only at showdown (cards will be Card objects instead of null)
+  const status = getStatus(player, isCurrentTurn, t);
   const showCards = player.hand.length === 2 && player.hand[0] !== null && player.hand[1] !== null;
-  const hasChipBubble = !compact && player.current_bet > 0 && player.is_active;
-
-  const bubbleEl = hasChipBubble ? (
-    <div style={{
-      display: 'flex',
-      flexDirection: 'column',
-      alignItems: 'center',
-      gap: 5,
-      alignSelf: 'center',
-      flexShrink: 0,
-    }}>
-      {/* Chip pile — key forces remount+animation when bet changes */}
-      <ChipStack key={player.current_bet} amount={player.current_bet} size="lg" />
-      {/* Amount label below the stack */}
-      <div style={{
-        fontFamily: 'var(--font-ui)',
-        fontSize: 12,
-        color: 'var(--gold)',
-        background: '#1a0e00',
-        border: '1px solid var(--gold-d)',
-        padding: '2px 6px',
-        whiteSpace: 'nowrap',
-      }}>
-        <span
-          key={player.current_bet}
-          style={{ display: 'inline-block', animation: 'numUpdate 0.35s ease-out' }}
-        >
-          ${player.current_bet}
-        </span>
-      </div>
-    </div>
-  ) : null;
+  const accent = avatarColor(player.id);
+  const cardSize = compact ? 'xs' : 'sm';
+  const boxW = compact ? 116 : 138;
 
   return (
-    <div style={{
-      display: 'flex',
-      flexDirection: chipBubbleSide === 'right' ? 'row' : 'row-reverse',
-      alignItems: 'center',
-      gap: 10,
-    }}>
-      {/* Box wrapper — badge sits outside the clipped div so it won't be cut off */}
-      <div style={{ position: 'relative' }}>
-        {/* Position badge — OUTSIDE clipPath to avoid clipping */}
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: boxW, flexShrink: 0 }}>
+      {/* Speech bubble / thinking dots */}
+      <div style={{ height: 30, display: 'flex', alignItems: 'flex-end', marginBottom: 3 }}>
+        {thought ? (
+          <div
+            style={{
+              background: 'var(--surface2)',
+              border: '1px solid var(--line)',
+              borderRadius: 12,
+              padding: '5px 10px',
+              fontSize: 12,
+              color: 'var(--text)',
+              maxWidth: 160,
+              textAlign: 'center',
+              lineHeight: 1.25,
+              boxShadow: '0 2px 8px rgba(0,0,0,0.4)',
+              animation: 'popIn 0.2s ease-out',
+              whiteSpace: 'nowrap',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              opacity: thought.fading ? 0 : 1,
+              transition: 'opacity 0.4s',
+            }}
+          >
+            {thought.chat}
+          </div>
+        ) : isThinking ? (
+          <span style={{ color: 'var(--gold)', fontSize: 18, animation: 'blink 1s steps(1) infinite' }}>● ● ●</span>
+        ) : null}
+      </div>
+
+      {/* Mini hole cards peeking above the pod */}
+      <div style={{ display: 'flex', gap: 3, marginBottom: -12, zIndex: 1 }}>
+        {showCards ? (
+          [player.hand[0] as CardType, player.hand[1] as CardType].map((c, i) => (
+            <Card
+              key={i}
+              size={cardSize}
+              variant="face-up"
+              rank={c.rank}
+              suit={c.suit}
+              glow={isWinCard(c, winningCards) ? 'win' : 'none'}
+              style={isWinCard(c, winningCards) ? { animation: 'winCardPulse 1.1s ease-in-out infinite' } : undefined}
+            />
+          ))
+        ) : (
+          <>
+            <Card size={cardSize} variant="face-down" />
+            <Card size={cardSize} variant="face-down" />
+          </>
+        )}
+      </div>
+
+      {/* Pod */}
+      <div
+        style={{
+          position: 'relative',
+          width: '100%',
+          background: 'var(--surface)',
+          border: `2px solid ${isCurrentTurn && !isFolded ? 'var(--gold)' : 'var(--line)'}`,
+          borderRadius: 14,
+          padding: '16px 8px 9px',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          gap: 2,
+          opacity: isFolded ? 0.45 : 1,
+          transition: 'opacity 0.3s, border-color 0.2s',
+          animation: isCurrentTurn && !isFolded ? 'turn-pulse 1.4s ease-in-out infinite' : 'none',
+        }}
+      >
+        {/* Badge */}
         {badge && (
-          <div style={{
-            position: 'absolute',
-            top: compact ? -11 : -14,
-            right: 5,
-            background: 'var(--gold)',
-            color: '#000',
-            fontSize: compact ? 8 : 11,
-            padding: '2px 6px',
-            fontFamily: 'var(--font-ui)',
-            lineHeight: 1.4,
-            zIndex: 2,
-          }}>
+          <div
+            style={{
+              position: 'absolute',
+              top: -10,
+              left: 8,
+              background: 'var(--gold)',
+              color: '#1a1208',
+              fontSize: 10,
+              fontWeight: 800,
+              padding: '2px 7px',
+              borderRadius: 8,
+            }}
+          >
             {badge}
           </div>
         )}
 
-        {/* Main pbox — has clipPath */}
-        <div style={{ ...boxStyle, ...activeBoxStyle }}>
-          {/* Bot name */}
-          <div style={{
-            fontFamily: 'var(--font-ui)',
-            fontSize: compact ? 12 : 16,
-            fontWeight: 600,
-            color: 'var(--gold)',
-            marginBottom: 3,
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-            whiteSpace: 'nowrap',
-          }}>
-            {player.name}
-          </div>
-
-          {/* Chips — key replays numUpdate animation when chips change */}
-          <div style={{
-            fontSize: compact ? 12 : 15,
-            fontWeight: 700,
-            color: 'var(--gold-l)',
-            marginBottom: 3,
-            fontFamily: 'var(--font-label)',
-          }}>
-            <span
-              key={player.chips}
-              style={{ display: 'inline-block', animation: 'numUpdate 0.35s ease-out' }}
-            >
-              ${player.chips.toLocaleString()}
-            </span>
-          </div>
-
-          {/* Status */}
-          <div style={{
-            fontSize: compact ? 10 : 13,
-            fontWeight: 600,
-            color: status.color,
-            fontFamily: 'var(--font-label)',
+        {/* Avatar */}
+        <div
+          style={{
+            width: 34,
+            height: 34,
+            borderRadius: '50%',
+            background: accent,
             display: 'flex',
             alignItems: 'center',
-            gap: 5,
-          }}>
+            justifyContent: 'center',
+            fontWeight: 800,
+            fontSize: 16,
+            color: '#fff',
+            marginTop: -28,
+            border: '3px solid var(--surface)',
+            boxShadow: '0 2px 6px rgba(0,0,0,0.4)',
+          }}
+        >
+          {(player.name || '?').charAt(0).toUpperCase()}
+        </div>
+
+        {/* Name */}
+        <div
+          style={{
+            fontWeight: 700,
+            fontSize: 13,
+            color: 'var(--text)',
+            maxWidth: '100%',
+            whiteSpace: 'nowrap',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+          }}
+        >
+          {player.name}
+        </div>
+
+        {/* Chips */}
+        <div
+          key={player.chips}
+          style={{
+            fontFamily: 'var(--font-ui)',
+            fontSize: 16,
+            fontWeight: 700,
+            color: player.is_all_in ? 'var(--allin)' : 'var(--gold-l)',
+            animation: 'numUpdate 0.35s ease-out',
+          }}
+        >
+          {player.is_all_in ? t('status.allin') : player.chips.toLocaleString()}
+        </div>
+
+        {/* Status line */}
+        {status.text && (
+          <div style={{ fontSize: 11, fontWeight: 600, color: status.color, display: 'flex', alignItems: 'center', gap: 4 }}>
             {isThinking && (
-              <span style={{
-                display: 'inline-block',
-                width: 8,
-                height: 8,
-                borderRadius: '50%',
-                border: '2px solid var(--gold)',
-                borderTopColor: 'transparent',
-                animation: 'spin 0.7s linear infinite',
-                flexShrink: 0,
-              }} />
+              <span
+                style={{
+                  width: 8,
+                  height: 8,
+                  borderRadius: '50%',
+                  border: '2px solid var(--gold)',
+                  borderTopColor: 'transparent',
+                  animation: 'spin 0.7s linear infinite',
+                }}
+              />
             )}
             {status.text}
           </div>
-
-          {/* Cards (face-down or face-up at showdown) */}
-          <div style={{ display: 'flex', gap: compact ? 3 : 6, marginTop: compact ? 4 : 6 }}>
-            {showCards ? (
-              <>
-                {[player.hand[0] as CardType, player.hand[1] as CardType].map((card, i) => {
-                  const win = isWinCard(card, winningCards);
-                  return (
-                    <Card
-                      key={i}
-                      size={compact ? 'xs' : 'sm'}
-                      variant="face-up"
-                      rank={card.rank}
-                      suit={card.suit}
-                      glow={win ? 'win' : 'none'}
-                      style={win ? { animation: 'winCardPulse 1.1s ease-in-out infinite' } : undefined}
-                    />
-                  );
-                })}
-              </>
-            ) : (
-              <>
-                <Card size={compact ? 'xs' : 'sm'} variant="face-down" />
-                <Card size={compact ? 'xs' : 'sm'} variant="face-down" />
-              </>
-            )}
-          </div>
-
-          {/* Speech bubble — floats outside this box via absolute positioning; hidden in compact mode */}
-          {!compact && thought && (
-            <BotSpeechBubble text={thought.chat} side={chipBubbleSide} fading={thought.fading} />
-          )}
-        </div>
+        )}
       </div>
 
-      {/* Chip bubble */}
-      {bubbleEl}
+      {/* Bet chip */}
+      {player.current_bet > 0 && player.is_active && (
+        <div
+          key={player.current_bet}
+          style={{
+            marginTop: 6,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 5,
+            background: 'rgba(0,0,0,0.4)',
+            border: '1px solid var(--gold-d)',
+            borderRadius: 16,
+            padding: '3px 9px',
+            fontSize: 12,
+            fontWeight: 700,
+            color: 'var(--gold-l)',
+            animation: 'numUpdate 0.35s ease-out',
+          }}
+        >
+          <span style={{ width: 9, height: 9, borderRadius: '50%', background: 'var(--gold)' }} />
+          {player.current_bet.toLocaleString()}
+        </div>
+      )}
     </div>
   );
 };

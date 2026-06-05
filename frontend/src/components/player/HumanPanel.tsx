@@ -16,7 +16,6 @@ function derivePositionLabel(playerIdx: number, dealerIdx: number, totalPlayers:
   if (playerIdx === dealerIdx) return 'BTN';
   if (playerIdx === sbIdx) return 'SB';
   if (playerIdx === bbIdx) return 'BB';
-  // UTG, HJ, CO approximations for 6-max
   const pos = (playerIdx - dealerIdx + totalPlayers) % totalPlayers;
   if (pos === 3) return 'UTG';
   if (pos === 4) return 'HJ';
@@ -25,119 +24,95 @@ function derivePositionLabel(playerIdx: number, dealerIdx: number, totalPlayers:
 }
 
 function isInPosition(playerIdx: number, dealerIdx: number, totalPlayers: number): boolean {
-  // BTN (pos=0) acts last postflop — most in position.
-  // HJ (pos=totalPlayers-2) and CO (pos=totalPlayers-1) also act late.
-  // SB (pos=1), BB (pos=2), UTG (pos=3) act early — out of position.
   const pos = (playerIdx - dealerIdx + totalPlayers) % totalPlayers;
   return pos === 0 || pos >= totalPlayers - 2;
 }
 
-const HumanPanel: React.FC<HumanPanelProps> = ({
-  player,
-  dealerIdx,
-  playerIdx,
-  totalPlayers,
-  isHumanTurn,
-}) => {
+const HumanPanel: React.FC<HumanPanelProps> = ({ player, dealerIdx, playerIdx, totalPlayers, isHumanTurn }) => {
   const { t } = useT();
   const posLabel = derivePositionLabel(playerIdx, dealerIdx, totalPlayers);
   const ip = isInPosition(playerIdx, dealerIdx, totalPlayers);
+  if (!player) return null;
 
   return (
-    <div style={{
-      background: 'var(--surface)',
-      border: '3px solid var(--gold-l)',
-      boxShadow: '0 0 20px rgba(232,208,128,0.2), 3px 3px 0 #000',
-      padding: '14px 18px',
-      minWidth: 180,
-      clipPath: 'var(--clip-md)',
-      opacity: player.is_active ? 1 : 0.3,
-      transition: 'opacity 0.3s ease',
-    }}>
-      {/* YOUR TURN indicator — blinks when it's the human's action */}
-      {isHumanTurn && (
-        <div style={{
-          fontSize: 14,
-          fontWeight: 700,
-          color: 'var(--gold)',
-          fontFamily: 'var(--font-label)',
-          letterSpacing: 1,
-          animation: 'blink 0.6s steps(1) infinite',
-          marginBottom: 6,
-          textAlign: 'center',
-        }}>
-          ◈ {t('human.yourTurn')}
-        </div>
-      )}
-
-      {/* YOU tag */}
-      <div style={{
-        display: 'inline-block',
-        fontSize: 12,
-        fontWeight: 700,
-        background: 'var(--gold)',
-        color: '#000',
-        padding: '3px 9px',
-        marginBottom: 7,
-        fontFamily: 'var(--font-label)',
-      }}>
-        {t('human.you')}
+    <div
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: 14,
+        background: 'var(--surface)',
+        border: `2px solid ${isHumanTurn ? 'var(--gold)' : 'var(--line)'}`,
+        borderRadius: 16,
+        padding: '8px 18px',
+        opacity: player.is_active ? 1 : 0.45,
+        animation: isHumanTurn ? 'turn-pulse 1.4s ease-in-out infinite' : 'none',
+      }}
+    >
+      {/* Avatar */}
+      <div
+        style={{
+          width: 38,
+          height: 38,
+          borderRadius: '50%',
+          background: 'linear-gradient(180deg, var(--gold-l), var(--gold-d))',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          fontWeight: 800,
+          fontSize: 18,
+          color: '#2a1d00',
+          flexShrink: 0,
+        }}
+      >
+        {(player.name || 'Y').charAt(0).toUpperCase()}
       </div>
 
-      {/* Player name */}
-      <div style={{
-        fontFamily: 'var(--font-ui)',
-        fontSize: 19,
-        fontWeight: 600,
-        color: 'var(--gold-l)',
-        textShadow: '0 0 8px rgba(232,208,128,0.5)',
-        marginBottom: 5,
-        letterSpacing: 1,
-      }}>
-        {player.name}
-      </div>
-
-      {/* Chips — key replays numUpdate animation when chips change */}
-      <div style={{
-        fontSize: 22,
-        fontWeight: 700,
-        color: 'var(--gold)',
-        marginBottom: 4,
-        fontFamily: 'var(--font-label)',
-      }}>
-        <span
-          key={player.chips}
-          style={{ display: 'inline-block', animation: 'numUpdate 0.35s ease-out' }}
-        >
-          ${player.chips.toLocaleString()}
+      {/* Name + position */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+        <span style={{ fontWeight: 700, fontSize: 14, color: 'var(--text)' }}>
+          {player.name}
+          {isHumanTurn && <span style={{ color: 'var(--gold)', marginLeft: 8, fontSize: 12 }}>● {t('human.yourTurn')}</span>}
+        </span>
+        <span style={{ fontSize: 12, fontWeight: 600, color: ip ? '#2fa566' : 'var(--text-dim)', display: 'flex', alignItems: 'center', gap: 5 }}>
+          <span style={{ color: ip ? '#2fa566' : '#cc6666' }}>●</span>
+          {posLabel && <span>{posLabel}</span>}
+          <span>{ip ? t('human.inPos') : t('human.oop')}</span>
         </span>
       </div>
 
-      {/* Position + status */}
-      <div style={{
-        fontSize: 13,
-        fontWeight: 600,
-        color: ip ? '#66cc88' : 'var(--gold-d)',
-        fontFamily: 'var(--font-label)',
-        display: 'flex',
-        alignItems: 'center',
-        gap: 5,
-      }}>
-        <span style={{ color: ip ? '#66cc88' : '#cc6666' }}>●</span>
-        {posLabel && <span>{posLabel}</span>}
-        <span>{ip ? t('human.inPos') : t('human.oop')}</span>
+      {/* Chips */}
+      <div
+        key={player.chips}
+        style={{
+          fontFamily: 'var(--font-ui)',
+          fontSize: 24,
+          fontWeight: 700,
+          color: player.is_all_in ? 'var(--allin)' : 'var(--gold-l)',
+          animation: 'numUpdate 0.35s ease-out',
+          marginLeft: 4,
+        }}
+      >
+        {player.is_all_in ? t('status.allin') : player.chips.toLocaleString()}
       </div>
 
-      {/* Current bet if any */}
+      {/* Current bet */}
       {player.current_bet > 0 && (
-        <div style={{
-          marginTop: 5,
-          fontSize: 13,
-          fontWeight: 600,
-          color: '#ffcc00',
-          fontFamily: 'var(--font-label)',
-        }}>
-          {t('status.bet')}: ${player.current_bet}
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 6,
+            background: 'rgba(0,0,0,0.4)',
+            border: '1px solid var(--gold-d)',
+            borderRadius: 16,
+            padding: '4px 11px',
+            fontSize: 13,
+            fontWeight: 700,
+            color: 'var(--gold-l)',
+          }}
+        >
+          <span style={{ width: 10, height: 10, borderRadius: '50%', background: 'var(--gold)' }} />
+          {t('status.bet')} {player.current_bet.toLocaleString()}
         </div>
       )}
     </div>

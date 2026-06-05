@@ -5,9 +5,6 @@ import HumanPanel from '../player/HumanPanel';
 import PotDisplay from './PotDisplay';
 import CommunityCards from './CommunityCards';
 import HoleCards from './HoleCards';
-import DealerBadge from './DealerBadge';
-import ActionAnnouncement from './ActionAnnouncement';
-import { useGameStore } from '../../store/useGameStore';
 import { useT } from '../../i18n/I18nContext';
 import { useIsMobile } from '../../hooks/useIsMobile';
 
@@ -16,270 +13,165 @@ interface PokerTableProps {
   handCount: number;
 }
 
-/**
- * Derive position badge for a player.
- * players[0] is always human; bots are 1-5.
- * dealerIdx is augmented into the state by main.py broadcast_state().
- */
-function getBadge(
-  playerIdx: number,
-  dealerIdx: number,
-  totalPlayers: number,
-): string | undefined {
-  const sbIdx = (dealerIdx + 1) % totalPlayers;
-  const bbIdx = (dealerIdx + 2) % totalPlayers;
+const STREET_LABEL: Record<string, string> = {
+  PREFLOP: 'PRE-FLOP',
+  FLOP: 'FLOP',
+  TURN: 'TURN',
+  RIVER: 'RIVER',
+  SHOWDOWN: 'SHOWDOWN',
+  FINISHED: 'SHOWDOWN',
+};
+
+function getBadge(playerIdx: number, dealerIdx: number, total: number): string | undefined {
+  const sb = (dealerIdx + 1) % total;
+  const bb = (dealerIdx + 2) % total;
   if (playerIdx === dealerIdx) return 'BTN';
-  if (playerIdx === sbIdx) return 'SB';
-  if (playerIdx === bbIdx) return 'BB';
+  if (playerIdx === sb) return 'SB';
+  if (playerIdx === bb) return 'BB';
   return undefined;
 }
 
 const PokerTable: React.FC<PokerTableProps> = ({ gameState, handCount }) => {
   const { t } = useT();
   const isMobile = useIsMobile();
-  const { players, community_cards, pot, state, current_player_idx, winning_cards } = gameState;
+  const { players, community_cards, pot, state, current_player_idx, winning_cards, winners } = gameState;
 
-  // At a real showdown (not fold-out), we have winning_cards to highlight
-  const isActualShowdown = (state === 'SHOWDOWN' || state === 'FINISHED') && winning_cards.length > 0;
-
-  // players[0] = human; bots = players[1..5]
+  const isShowdown = (state === 'SHOWDOWN' || state === 'FINISHED') && winning_cards.length > 0;
   const humanPlayer = players[0];
-  const botPlayers = players.slice(1); // indices 1-5
+  const botPlayers = players.slice(1);
+  const dealerIdx = Math.max(0, players.findIndex((p) => p.is_dealer));
+  const total = players.length;
 
-  // Determine dealer index (server augments is_dealer into each player)
-  const dealerIdx = players.findIndex(p => p.is_dealer);
-  const effectiveDealerIdx = dealerIdx >= 0 ? dealerIdx : 0;
-  const totalPlayers = players.length;
-
-  // Left column: bots at indices 1, 2, 3 → botPlayers[0,1,2]
-  const leftBots = botPlayers.slice(0, 3);
-  // Right column: bots at indices 4, 5 → botPlayers[3,4]
-  const rightBots = botPlayers.slice(3, 5);
-
-  // Floating action announcement from store
-  const currentAction = useGameStore(s => s.currentAction);
-  // actionInFlight: human sent an action but server hasn't responded yet
-  const actionInFlight = useGameStore(s => s.actionInFlight);
-
-  // isActiveHumanTurn: true only while human must still act (stops blink immediately on click)
   const isActiveHumanTurn =
-    current_player_idx === 0 &&
-    state !== 'SHOWDOWN' &&
-    state !== 'FINISHED' &&
-    !actionInFlight;
+    current_player_idx === 0 && state !== 'SHOWDOWN' && state !== 'FINISHED';
 
-  // Track dealing/revealing state for DealerBadge
-  const [isDealing, setIsDealing] = React.useState(false);
-  const [isRevealing, setIsRevealing] = React.useState(false);
-  const prevCommunityCount = React.useRef(community_cards.length);
-
-  // Detect new hand start (dealing)
-  React.useEffect(() => {
-    if (handCount === 0) return; // skip initial mount
-    setIsDealing(true);
-    const t = setTimeout(() => setIsDealing(false), 900);
-    return () => clearTimeout(t);
-  }, [handCount]);
-
-  // Detect community card reveals
-  React.useEffect(() => {
-    if (community_cards.length > prevCommunityCount.current) {
-      setIsRevealing(true);
-      const t = setTimeout(() => setIsRevealing(false), 600);
-      prevCommunityCount.current = community_cards.length;
-      return () => clearTimeout(t);
-    }
-    prevCommunityCount.current = community_cards.length;
-  }, [community_cards.length]);
+  const winnerNames =
+    state === 'SHOWDOWN' || state === 'FINISHED'
+      ? winners.map((id) => players.find((p) => p.id === id)?.name ?? id).join(' & ')
+      : '';
 
   return (
-    <div style={{
-      width: '100%',
-      flex: 1,
-      padding: '12px 8px',
-      display: 'flex',
-      flexDirection: 'column',
-    }}>
-      {/* Felt wrap */}
-      <div style={{
+    <div
+      style={{
         flex: 1,
-        position: 'relative',
+        minHeight: 0,
         display: 'flex',
         flexDirection: 'column',
-      }}>
-        {/* The green felt */}
-        <div style={{
+        alignItems: 'center',
+        padding: '8px 12px 0',
+        gap: 6,
+      }}
+    >
+      {/* Opponents row */}
+      <div
+        style={{
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'flex-start',
+          gap: isMobile ? 6 : 14,
+          flexWrap: 'wrap',
           width: '100%',
-          flex: 1,
-          background: 'radial-gradient(ellipse 80% 70% at 50% 42%, var(--felt-c) 0%, #122012 55%, var(--felt-e) 100%)',
-          border: '5px solid var(--gold)',
-          boxShadow: '0 0 0 2px var(--gold-d), inset 0 0 60px rgba(0,0,0,0.45), 0 0 40px rgba(200,160,64,0.06)',
-          position: 'relative',
-          overflow: 'hidden',
-        }}>
-          {/* Top-left corner L */}
-          <div style={{
-            position: 'absolute', top: 6, left: 6,
-            width: 18, height: 18,
-            borderTop: '3px solid var(--gold)',
-            borderLeft: '3px solid var(--gold)',
-            pointerEvents: 'none',
-          }} />
-          {/* Top-right corner L */}
-          <div style={{
-            position: 'absolute', top: 6, right: 6,
-            width: 18, height: 18,
-            borderTop: '3px solid var(--gold)',
-            borderRight: '3px solid var(--gold)',
-            pointerEvents: 'none',
-          }} />
-
-          {/* Dealer badge (top center) */}
-          <DealerBadge
-            isDealing={isDealing}
-            isRevealing={isRevealing}
-            isShowdown={state === 'SHOWDOWN' || state === 'FINISHED'}
+          flexShrink: 0,
+        }}
+      >
+        {botPlayers.map((bot, i) => (
+          <PlayerBox
+            key={bot.id}
+            player={bot}
+            isCurrentTurn={current_player_idx === i + 1}
+            badge={getBadge(i + 1, dealerIdx, total)}
+            winningCards={isShowdown && winners.includes(bot.id) ? winning_cards : undefined}
+            compact={isMobile}
           />
+        ))}
+      </div>
 
-          {/* Left bots (3) */}
-          <div style={{
+      {/* Felt */}
+      <div
+        style={{
+          flex: 1,
+          minHeight: 150,
+          width: '100%',
+          maxWidth: 760,
+          borderRadius: 120,
+          background: 'radial-gradient(ellipse at 50% 45%, var(--felt) 0%, var(--felt-edge) 82%)',
+          border: '8px solid var(--rail)',
+          boxShadow: 'inset 0 0 60px rgba(0,0,0,0.5), 0 12px 30px rgba(0,0,0,0.5)',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: 14,
+          position: 'relative',
+          padding: 16,
+        }}
+      >
+        {/* Street label */}
+        <div
+          style={{
             position: 'absolute',
-            left: isMobile ? 6 : 16,
-            top: isMobile ? 16 : 28,
-            display: 'flex',
-            flexDirection: 'column',
-            gap: isMobile ? 6 : 20,
-          }}>
-            {leftBots.map((bot, i) => {
-              const playerIdx = i + 1; // bot 0→idx1, bot 1→idx2, bot 2→idx3
-              return (
-                <PlayerBox
-                  key={bot.id}
-                  player={bot}
-                  isCurrentTurn={current_player_idx === playerIdx}
-                  chipBubbleSide="right"
-                  badge={getBadge(playerIdx, effectiveDealerIdx, totalPlayers)}
-                  winningCards={isActualShowdown && gameState.winners.includes(bot.id) ? winning_cards : undefined}
-                  compact={isMobile}
-                />
-              );
-            })}
-          </div>
-
-          {/* Right bots (2) */}
-          <div style={{
-            position: 'absolute',
-            right: isMobile ? 6 : 16,
-            top: isMobile ? 16 : 28,
-            display: 'flex',
-            flexDirection: 'column',
-            gap: isMobile ? 6 : 20,
-            alignItems: 'flex-end',
-          }}>
-            {rightBots.map((bot, i) => {
-              const playerIdx = i + 4; // bot 3→idx4, bot 4→idx5
-              return (
-                <PlayerBox
-                  key={bot.id}
-                  player={bot}
-                  isCurrentTurn={current_player_idx === playerIdx}
-                  chipBubbleSide="left"
-                  badge={getBadge(playerIdx, effectiveDealerIdx, totalPlayers)}
-                  winningCards={isActualShowdown && gameState.winners.includes(bot.id) ? winning_cards : undefined}
-                  compact={isMobile}
-                />
-              );
-            })}
-          </div>
-
-          {/* Table center: pot + community cards */}
-          <div style={{
-            position: 'absolute',
-            top: '50%',
-            left: '50%',
-            transform: 'translate(-50%, -55%)',
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            gap: 12,
-          }}>
-            <PotDisplay pot={pot} street={state} />
-            <CommunityCards
-              cards={community_cards}
-              winningCards={isActualShowdown ? winning_cards : undefined}
-            />
-          </div>
-
-          {/* Human hole cards (bottom center) */}
-          {humanPlayer && (
-            <HoleCards
-              cards={humanPlayer.hand}
-              handCount={handCount}
-              isHumanTurn={isActiveHumanTurn}
-              winningCards={isActualShowdown && gameState.winners.includes(humanPlayer.id) ? winning_cards : undefined}
-            />
-          )}
-
-          {/* Human player info box (bottom center-right, beside hole cards) */}
-          {humanPlayer && (
-            <div style={{
-              position: 'absolute',
-              bottom: isMobile ? 10 : 20,
-              left: isMobile ? 'calc(50% + 68px)' : 'calc(50% + 90px)',
-            }}>
-              <HumanPanel
-                player={humanPlayer}
-                dealerIdx={effectiveDealerIdx}
-                playerIdx={0}
-                totalPlayers={totalPlayers}
-                isHumanTurn={isActiveHumanTurn}
-              />
-            </div>
-          )}
-
-          {/* Floating action announcement */}
-          {currentAction && (
-            <ActionAnnouncement
-              key={`${currentAction.player_id}-${currentAction.action}-${currentAction.amount}`}
-              action={currentAction}
-            />
-          )}
-
-          {/* Winner announcement */}
-          {(state === 'SHOWDOWN' || state === 'FINISHED') && gameState.winners.length > 0 && (() => {
-            const winnerNames = gameState.winners
-              .map(id => players.find(p => p.id === id)?.name ?? id)
-              .join(' & ');
-            return (
-              <div
-                key={gameState.winners.join('-')}
-                style={{
-                position: 'absolute',
-                top: '30%',
-                left: '50%',
-                transform: 'translateX(-50%)',
-                background: 'rgba(0,0,0,0.88)',
-                border: '3px solid var(--gold)',
-                padding: '14px 28px',
-                textAlign: 'center',
-                clipPath: 'var(--clip-md)',
-                zIndex: 10,
-                whiteSpace: 'nowrap',
-                animation: 'showdownReveal 0.45s cubic-bezier(0.34, 1.56, 0.64, 1) forwards',
-              }}>
-                <div style={{ fontSize: 7, color: 'var(--gold-d)', letterSpacing: 3, marginBottom: 8, fontFamily: 'var(--font-label)' }}>
-                  {t('showdown.label')}
-                </div>
-                <div style={{ fontSize: 12, color: 'var(--gold)', letterSpacing: 1, marginBottom: 6, fontFamily: 'var(--font-ui)' }}>
-                  {winnerNames}
-                </div>
-                <div style={{ fontSize: 8, color: 'var(--gold-l)', fontFamily: 'var(--font-label)', letterSpacing: 1 }}>
-                  {gameState.winning_hand}
-                </div>
-              </div>
-            );
-          })()}
+            top: 14,
+            fontSize: 11,
+            fontWeight: 800,
+            letterSpacing: 4,
+            color: 'rgba(255,255,255,0.4)',
+          }}
+        >
+          {STREET_LABEL[state] ?? state}
         </div>
+
+        <PotDisplay pot={pot} />
+        <CommunityCards cards={community_cards} winningCards={isShowdown ? winning_cards : undefined} />
+
+        {/* Winner banner */}
+        {(state === 'SHOWDOWN' || state === 'FINISHED') && winners.length > 0 && (
+          <div
+            key={winners.join('-')}
+            style={{
+              position: 'absolute',
+              top: '50%',
+              left: '50%',
+              transform: 'translate(-50%, -50%)',
+              background: 'rgba(0,0,0,0.9)',
+              border: '3px solid var(--gold)',
+              borderRadius: 16,
+              padding: '14px 28px',
+              textAlign: 'center',
+              whiteSpace: 'nowrap',
+              zIndex: 10,
+              animation: 'popIn 0.4s cubic-bezier(0.34,1.56,0.64,1) both',
+            }}
+          >
+            <div style={{ fontSize: 11, color: 'var(--gold-d)', letterSpacing: 2, marginBottom: 6, fontWeight: 700 }}>
+              {t('showdown.label')}
+            </div>
+            <div style={{ fontFamily: 'var(--font-ui)', fontSize: 20, color: 'var(--gold-l)', marginBottom: 4 }}>
+              {winnerNames}
+            </div>
+            <div style={{ fontSize: 13, color: 'var(--text)', fontWeight: 600 }}>{gameState.winning_hand}</div>
+          </div>
+        )}
+      </div>
+
+      {/* Hero */}
+      <div style={{ flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, paddingBottom: 6 }}>
+        {humanPlayer && (
+          <HoleCards
+            cards={humanPlayer.hand}
+            handCount={handCount}
+            isHumanTurn={isActiveHumanTurn}
+            winningCards={isShowdown && winners.includes(humanPlayer.id) ? winning_cards : undefined}
+          />
+        )}
+        {humanPlayer && (
+          <HumanPanel
+            player={humanPlayer}
+            dealerIdx={dealerIdx}
+            playerIdx={0}
+            totalPlayers={total}
+            isHumanTurn={isActiveHumanTurn}
+          />
+        )}
       </div>
     </div>
   );
